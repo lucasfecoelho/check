@@ -1,18 +1,19 @@
 {
   "expo": {
-    "name": "ToDo",
-    "slug": "ToDo",
-    "version": "1.0.0",
+    "name": "Check",
+    "slug": "check",
+    "version": "0.1.0",
+    "description": "App pessoal para tarefas e hábitos",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "todo",
-    "userInterfaceStyle": "automatic",
+    "scheme": "check",
+    "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#EDE9FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -28,13 +29,17 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#7C3AED",
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-sqlite",
+      "expo-notifications",
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
