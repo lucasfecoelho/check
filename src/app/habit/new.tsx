@@ -10,9 +10,10 @@ import {
   type Category,
   type CreateHabitInput,
 } from '@/database';
-import { colors, spacing } from '@/theme';
+import { spacing, useThemeColors } from '@/theme';
 
 export default function NewHabitScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
 

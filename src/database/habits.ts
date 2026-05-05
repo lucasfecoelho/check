@@ -19,7 +19,7 @@ import {
 } from './date';
 import { getDatabase } from './client';
 import { createId } from './id';
-import { serializeHabitWeekdays, shouldHabitAppearOnDate } from './habitRules';
+import { LAST_DAY_OF_MONTH, serializeHabitWeekdays, shouldHabitAppearOnDate } from './habitRules';
 import type {
   CreateHabitInput,
   HabitCompletion,
@@ -70,9 +70,13 @@ function validateHabitInput(input: CreateHabitInput | UpdateHabitInput) {
 
   if (
     frequency === 'monthly' &&
-    (!Number.isInteger(dayOfMonth) || dayOfMonth === null || dayOfMonth < 1 || dayOfMonth > 31)
+    (
+      !Number.isInteger(dayOfMonth) ||
+      dayOfMonth === null ||
+      (dayOfMonth !== LAST_DAY_OF_MONTH && (dayOfMonth < 1 || dayOfMonth > 31))
+    )
   ) {
-    throw new Error('Escolha um dia do mês entre 1 e 31.');
+    throw new Error('Escolha um dia do mês entre 1 e 31 ou o último dia do mês.');
   }
 
   return {

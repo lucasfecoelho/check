@@ -2,8 +2,10 @@ import {
   COMPLETE_TASK_SQL,
   DELETE_TASK_SQL,
   INSERT_TASK_SQL,
+  SELECT_OLD_PENDING_TASKS_SQL,
   SELECT_SETTING_VALUE_SQL,
   SELECT_TASK_BY_ID_SQL,
+  SELECT_TODAY_COMPLETED_TASKS_SQL,
   SELECT_TODAY_TASKS_SQL,
   SELECT_UPCOMING_TASKS_SQL,
   UPDATE_TASK_NOTIFICATION_IDS_SQL,
@@ -199,6 +201,24 @@ export async function getTodayTasks() {
   const today = getTodayDateKey();
 
   return db.getAllAsync<TaskWithCategory>(SELECT_TODAY_TASKS_SQL, [today]);
+}
+
+export async function getTodayCompletedTasks() {
+  await cleanupOldTasks();
+
+  const db = await getDatabase();
+  const today = getTodayDateKey();
+
+  return db.getAllAsync<TaskWithCategory>(SELECT_TODAY_COMPLETED_TASKS_SQL, [today]);
+}
+
+export async function getOldPendingTasks() {
+  await cleanupOldTasks();
+
+  const db = await getDatabase();
+  const today = getTodayDateKey();
+
+  return db.getAllAsync<TaskWithCategory>(SELECT_OLD_PENDING_TASKS_SQL, [today]);
 }
 
 export async function getUpcomingTasks() {

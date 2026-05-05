@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
   Modal,
   Pressable,
@@ -8,7 +9,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useThemeColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -44,6 +45,7 @@ type TimeColumnProps = {
 };
 
 function TimeColumn({ label, onSelect, selectedValue, values }: TimeColumnProps) {
+  const colors = useThemeColors();
   const listRef = useRef<FlatList<number>>(null);
 
   useEffect(() => {
@@ -89,7 +91,11 @@ function TimeColumn({ label, onSelect, selectedValue, values }: TimeColumnProps)
               onPress={() => onSelect(item)}
               style={({ pressed }) => [
                 styles.option,
-                isSelected && styles.optionSelected,
+                isSelected && {
+                  backgroundColor: colors.primarySoft,
+                  borderColor: colors.primary,
+                  borderWidth: 1,
+                },
                 pressed && styles.pressed,
               ]}>
               <AppText color={isSelected ? colors.primary : colors.text} variant="bodyStrong">
@@ -99,7 +105,13 @@ function TimeColumn({ label, onSelect, selectedValue, values }: TimeColumnProps)
           );
         }}
         showsVerticalScrollIndicator={false}
-        style={styles.list}
+        style={[
+          styles.list,
+          {
+            backgroundColor: colors.surfaceMuted,
+            borderColor: colors.border,
+          },
+        ]}
       />
     </View>
   );
@@ -111,8 +123,10 @@ export function TimePickerModal({
   onConfirm,
   visible,
 }: TimePickerModalProps) {
+  const colors = useThemeColors();
   const [selectedHour, setSelectedHour] = useState(20);
   const [selectedMinute, setSelectedMinute] = useState(0);
+  const modalProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!visible) {
@@ -123,7 +137,13 @@ export function TimePickerModal({
 
     setSelectedHour(parts.hour);
     setSelectedMinute(parts.minute);
-  }, [initialValue, visible]);
+    modalProgress.setValue(0);
+    Animated.timing(modalProgress, {
+      duration: 160,
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [initialValue, modalProgress, visible]);
 
   function stopCardPress(event: GestureResponderEvent) {
     event.stopPropagation();
@@ -135,49 +155,90 @@ export function TimePickerModal({
 
   return (
     <Modal animationType="fade" onRequestClose={onCancel} transparent visible={visible}>
-      <Pressable accessibilityRole="button" onPress={onCancel} style={styles.overlay}>
-        <Pressable onPress={stopCardPress} style={styles.modal}>
-          <View style={styles.header}>
-            <AppText variant="bodyStrong">Escolher horário</AppText>
-            <AppText color={colors.primary} style={styles.selectedTime} variant="heading">
-              {padTime(selectedHour)}:{padTime(selectedMinute)}
-            </AppText>
-          </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onCancel}
+        style={[styles.overlay, { backgroundColor: 'rgba(0, 0, 0, 0.52)' }]}>
+        <Animated.View
+          style={[
+            styles.modalMotion,
+            {
+              opacity: modalProgress,
+              transform: [
+                {
+                  translateY: modalProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [12, 0],
+                  }),
+                },
+                {
+                  scale: modalProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.98, 1],
+                  }),
+                },
+              ],
+            },
+          ]}>
+          <Pressable
+            onPress={stopCardPress}
+            style={[styles.modal, { backgroundColor: colors.surface }]}>
+            <View style={styles.header}>
+              <AppText variant="bodyStrong">Escolher horário</AppText>
+              <View
+                style={[
+                  styles.selectedTimePill,
+                  { backgroundColor: colors.primarySoft, borderColor: colors.border },
+                ]}>
+                <AppText color={colors.primary} style={styles.selectedTime} variant="heading">
+                  {padTime(selectedHour)}:{padTime(selectedMinute)}
+                </AppText>
+              </View>
+            </View>
 
-          <View style={styles.columns}>
-            <TimeColumn
-              label="Hora"
-              onSelect={setSelectedHour}
-              selectedValue={selectedHour}
-              values={hours}
-            />
-            <TimeColumn
-              label="Minuto"
-              onSelect={setSelectedMinute}
-              selectedValue={selectedMinute}
-              values={minutes}
-            />
-          </View>
+            <View style={styles.columns}>
+              <TimeColumn
+                label="Hora"
+                onSelect={setSelectedHour}
+                selectedValue={selectedHour}
+                values={hours}
+              />
+              <TimeColumn
+                label="Minuto"
+                onSelect={setSelectedMinute}
+                selectedValue={selectedMinute}
+                values={minutes}
+              />
+            </View>
 
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onCancel}
-              style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
-              <AppText color={colors.textMuted} variant="bodyStrong">
-                Cancelar
-              </AppText>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleConfirm}
-              style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}>
-              <AppText color={colors.surface} variant="bodyStrong">
-                Confirmar
-              </AppText>
-            </Pressable>
-          </View>
-        </Pressable>
+            <View style={styles.actions}>
+              <Pressable
+                accessibilityLabel="Cancelar escolha de horário"
+                accessibilityRole="button"
+                hitSlop={6}
+                onPress={onCancel}
+                style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+                <AppText color={colors.textMuted} variant="bodyStrong">
+                  Cancelar
+                </AppText>
+              </Pressable>
+              <Pressable
+                accessibilityLabel={`Confirmar horário ${padTime(selectedHour)}:${padTime(selectedMinute)}`}
+                accessibilityRole="button"
+                hitSlop={6}
+                onPress={handleConfirm}
+                style={({ pressed }) => [
+                  styles.confirmButton,
+                  { backgroundColor: colors.primary },
+                  pressed && styles.pressed,
+                ]}>
+                <AppText color={colors.onPrimary} variant="bodyStrong">
+                  Confirmar
+                </AppText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
@@ -186,16 +247,18 @@ export function TimePickerModal({
 const styles = StyleSheet.create({
   overlay: {
     alignItems: 'center',
-    backgroundColor: 'rgba(33, 24, 47, 0.42)',
     flex: 1,
     justifyContent: 'center',
     padding: spacing.xl,
   },
+  modalMotion: {
+    maxWidth: 420,
+    width: '100%',
+  },
   modal: {
-    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     gap: spacing.lg,
-    maxWidth: 420,
+    maxHeight: '86%',
     padding: spacing.lg,
     width: '100%',
   },
@@ -205,6 +268,12 @@ const styles = StyleSheet.create({
   },
   selectedTime: {
     textAlign: 'center',
+  },
+  selectedTimePill: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
   },
   columns: {
     flexDirection: 'row',
@@ -216,8 +285,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   list: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
     height: 220,
@@ -233,12 +300,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   optionSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-    borderWidth: 1,
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     justifyContent: 'flex-end',
   },
@@ -251,7 +316,6 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     alignItems: 'center',
-    backgroundColor: colors.primary,
     borderRadius: radius.md,
     justifyContent: 'center',
     minHeight: 44,

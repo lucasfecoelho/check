@@ -11,9 +11,10 @@ import {
   type Category,
   type CreateTaskInput,
 } from '@/database';
-import { colors, spacing } from '@/theme';
+import { spacing, useThemeColors } from '@/theme';
 
 export default function NewTaskScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [defaultTime, setDefaultTime] = useState('20:00');

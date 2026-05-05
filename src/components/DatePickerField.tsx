@@ -8,8 +8,8 @@ import {
   subMonths,
 } from 'date-fns';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import {
   DATE_KEY_FORMAT,
@@ -17,7 +17,7 @@ import {
   isDateKeyValid,
   parseDateKey,
 } from '@/database/date';
-import { colors, radius, spacing, typography } from '@/theme';
+import { radius, spacing, typography, useThemeColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -33,9 +33,11 @@ function getDateKey(date: Date) {
 }
 
 export function DatePickerField({ dateKey, onChange }: DatePickerFieldProps) {
+  const colors = useThemeColors();
   const selectedDate = isDateKeyValid(dateKey) ? parseDateKey(dateKey) : new Date();
   const [isOpen, setIsOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(startOfMonth(selectedDate));
+  const modalProgress = useRef(new Animated.Value(0)).current;
 
   const days = useMemo(() => {
     const monthStart = startOfMonth(visibleMonth);
@@ -49,6 +51,19 @@ export function DatePickerField({ dateKey, onChange }: DatePickerFieldProps) {
     month: 'long',
     year: 'numeric',
   }).format(visibleMonth);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    modalProgress.setValue(0);
+    Animated.timing(modalProgress, {
+      duration: 160,
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [isOpen, modalProgress]);
 
   function handleOpen() {
     setVisibleMonth(startOfMonth(selectedDate));
@@ -65,20 +80,52 @@ export function DatePickerField({ dateKey, onChange }: DatePickerFieldProps) {
       <Pressable
         accessibilityRole="button"
         onPress={handleOpen}
-        style={({ pressed }) => [styles.fieldButton, pressed && styles.pressed]}>
+        style={({ pressed }) => [
+          styles.fieldButton,
+          {
+            backgroundColor: colors.surfaceMuted,
+            borderColor: colors.border,
+          },
+          pressed && styles.pressed,
+        ]}>
         <CalendarDays color={colors.textMuted} size={18} strokeWidth={2.2} />
         <AppText variant="bodyStrong">{formatDateKeyForDisplay(dateKey)}</AppText>
       </Pressable>
 
       <Modal animationType="fade" transparent visible={isOpen}>
-        <View style={styles.overlay}>
-          <View style={styles.modal}>
+        <View style={[styles.overlay, { backgroundColor: 'rgba(0, 0, 0, 0.48)' }]}>
+          <Animated.View
+            style={[
+              styles.modal,
+              { backgroundColor: colors.surface },
+              {
+                opacity: modalProgress,
+                transform: [
+                  {
+                    translateY: modalProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [12, 0],
+                    }),
+                  },
+                  {
+                    scale: modalProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.98, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}>
             <View style={styles.modalHeader}>
               <Pressable
                 accessibilityLabel="Mês anterior"
                 accessibilityRole="button"
                 onPress={() => setVisibleMonth((currentMonth) => subMonths(currentMonth, 1))}
-                style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                style={({ pressed }) => [
+                  styles.iconButton,
+                  { backgroundColor: colors.primarySoft },
+                  pressed && styles.pressed,
+                ]}>
                 <ChevronLeft color={colors.primary} size={22} strokeWidth={2.4} />
               </Pressable>
 
@@ -90,7 +137,11 @@ export function DatePickerField({ dateKey, onChange }: DatePickerFieldProps) {
                 accessibilityLabel="Próximo mês"
                 accessibilityRole="button"
                 onPress={() => setVisibleMonth((currentMonth) => addMonths(currentMonth, 1))}
-                style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                style={({ pressed }) => [
+                  styles.iconButton,
+                  { backgroundColor: colors.primarySoft },
+                  pressed && styles.pressed,
+                ]}>
                 <ChevronRight color={colors.primary} size={22} strokeWidth={2.4} />
               </Pressable>
             </View>
@@ -119,11 +170,11 @@ export function DatePickerField({ dateKey, onChange }: DatePickerFieldProps) {
                     onPress={() => handleSelectDate(day)}
                     style={({ pressed }) => [
                       styles.dayButton,
-                      isSelected && styles.dayButtonSelected,
+                      isSelected && { backgroundColor: colors.primary },
                       pressed && styles.pressed,
                     ]}>
                     <AppText
-                      color={isSelected ? colors.surface : colors.text}
+                      color={isSelected ? colors.onPrimary : colors.text}
                       variant={isSelected ? 'bodyStrong' : 'body'}>
                       {format(day, 'd')}
                     </AppText>
@@ -150,7 +201,7 @@ export function DatePickerField({ dateKey, onChange }: DatePickerFieldProps) {
                 </AppText>
               </Pressable>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </>
@@ -160,8 +211,6 @@ export function DatePickerField({ dateKey, onChange }: DatePickerFieldProps) {
 const styles = StyleSheet.create({
   fieldButton: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
     flexDirection: 'row',
@@ -174,13 +223,11 @@ const styles = StyleSheet.create({
   },
   overlay: {
     alignItems: 'center',
-    backgroundColor: 'rgba(33, 24, 47, 0.36)',
     flex: 1,
     justifyContent: 'center',
     padding: spacing.xl,
   },
   modal: {
-    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     gap: spacing.lg,
     maxWidth: 420,
@@ -194,7 +241,6 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
     borderRadius: radius.md,
     height: 44,
     justifyContent: 'center',
@@ -225,7 +271,6 @@ const styles = StyleSheet.create({
     width: `${100 / 7}%`,
   },
   dayButtonSelected: {
-    backgroundColor: colors.primary,
   },
   modalActions: {
     flexDirection: 'row',

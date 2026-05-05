@@ -1,5 +1,6 @@
 import {
   compareAsc,
+  endOfMonth,
   endOfWeek,
   format,
   getDate,
@@ -142,4 +143,8 @@ export function getWeekdayIndex(date = new Date()) {
 
 export function getMonthDay(date = new Date()) {
   return getDate(date);
+}
+
+export function isLastDayOfMonth(date = new Date()) {
+  return getDate(date) === getDate(endOfMonth(date));
 }

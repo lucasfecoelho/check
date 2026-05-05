@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing } from '@/theme';
+import { spacing, useThemeColors } from '@/theme';
 
 type AppScreenProps = {
   children: ReactNode;
@@ -17,8 +17,12 @@ type AppScreenProps = {
 };
 
 export function AppScreen({ children, contentStyle }: AppScreenProps) {
+  const colors = useThemeColors();
+
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}>
@@ -37,7 +41,6 @@ export function AppScreen({ children, contentStyle }: AppScreenProps) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   scroll: {
     flex: 1,

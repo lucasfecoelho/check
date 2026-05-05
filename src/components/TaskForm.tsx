@@ -7,7 +7,7 @@ import {
   getTodayDateKey,
   isDateKeyValid,
 } from '@/database/date';
-import { colors, radius, spacing, typography } from '@/theme';
+import { radius, spacing, typography, useThemeColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { Card } from './Card';
@@ -33,6 +33,7 @@ export function TaskForm({
   onSubmit,
   submitLabel,
 }: TaskFormProps) {
+  const colors = useThemeColors();
   const firstCategoryId = categories[0]?.id ?? '';
   const [title, setTitle] = useState(initialValues?.title ?? '');
   const [categoryId, setCategoryId] = useState(initialValues?.category_id ?? firstCategoryId);
@@ -79,7 +80,14 @@ export function TaskForm({
             onChangeText={setTitle}
             placeholder="Ex: Pagar boleto"
             placeholderTextColor={colors.textSoft}
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
             value={title}
           />
         </View>
@@ -95,7 +103,14 @@ export function TaskForm({
                   accessibilityRole="button"
                   key={category.id}
                   onPress={() => setCategoryId(category.id)}
-                  style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}>
+                  style={[
+                    styles.categoryChip,
+                    { borderColor: colors.border },
+                    isSelected && {
+                      backgroundColor: colors.primarySoft,
+                      borderColor: colors.primary,
+                    },
+                  ]}>
                   <CategoryIcon color={category.color} name={category.icon} size={16} />
                   <AppText
                     color={isSelected ? colors.primary : colors.text}
@@ -121,7 +136,7 @@ export function TaskForm({
           </View>
         </View>
 
-        <View style={styles.preview}>
+        <View style={[styles.preview, { backgroundColor: colors.primarySoft }]}>
           <AppText color={colors.textMuted} variant="caption">
             Horário vazio salva {defaultTime}
           </AppText>
@@ -129,7 +144,7 @@ export function TaskForm({
       </Card>
 
       {error ? (
-        <View style={styles.errorBox}>
+        <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft }]}>
           <AppText color={colors.danger} variant="caption">
             {error}
           </AppText>
@@ -160,11 +175,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   input: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
-    color: colors.text,
     fontSize: typography.sizes.body,
     minHeight: 48,
     paddingHorizontal: spacing.md,
@@ -176,7 +188,6 @@ const styles = StyleSheet.create({
   },
   categoryChip: {
     alignItems: 'center',
-    borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
     flexDirection: 'row',
@@ -186,16 +197,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   categoryChipSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
   },
   preview: {
-    backgroundColor: colors.primarySoft,
     borderRadius: radius.md,
     padding: spacing.md,
   },
   errorBox: {
-    backgroundColor: colors.dangerSoft,
     borderRadius: radius.md,
     padding: spacing.md,
   },

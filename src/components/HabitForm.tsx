@@ -4,8 +4,13 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import type { Category, CreateHabitInput, HabitFrequency, UpdateHabitInput } from '@/database';
 import { DEFAULT_HABIT_TIME } from '@/database/date';
-import { frequencyLabels, parseHabitWeekdays, weekdayOptions } from '@/database/habitRules';
-import { colors, radius, spacing, typography } from '@/theme';
+import {
+  frequencyLabels,
+  LAST_DAY_OF_MONTH,
+  parseHabitWeekdays,
+  weekdayOptions,
+} from '@/database/habitRules';
+import { radius, spacing, typography, useThemeColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { Card } from './Card';
@@ -30,6 +35,7 @@ type HabitFormProps = {
 };
 
 const frequencies: HabitFrequency[] = ['daily', 'weekly', 'monthly'];
+const lastDayValue = String(LAST_DAY_OF_MONTH);
 
 function getInitialWeekdays(daysOfWeek?: string | number[] | null) {
   if (Array.isArray(daysOfWeek)) {
@@ -40,6 +46,7 @@ function getInitialWeekdays(daysOfWeek?: string | number[] | null) {
 }
 
 export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: HabitFormProps) {
+  const colors = useThemeColors();
   const firstCategoryId = categories[0]?.id ?? '';
   const [title, setTitle] = useState(initialValues?.title ?? '');
   const [categoryId, setCategoryId] = useState(initialValues?.category_id ?? firstCategoryId);
@@ -96,7 +103,14 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
             onChangeText={setTitle}
             placeholder="Ex: Ler por 10 minutos"
             placeholderTextColor={colors.textSoft}
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
             value={title}
           />
         </View>
@@ -112,7 +126,14 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
                   accessibilityRole="button"
                   key={category.id}
                   onPress={() => setCategoryId(category.id)}
-                  style={[styles.categoryChip, isSelected && styles.chipSelected]}>
+                  style={[
+                    styles.categoryChip,
+                    { borderColor: colors.border },
+                    isSelected && {
+                      backgroundColor: colors.primarySoft,
+                      borderColor: colors.primary,
+                    },
+                  ]}>
                   <CategoryIcon color={category.color} name={category.icon} size={16} />
                   <AppText
                     color={isSelected ? colors.primary : colors.text}
@@ -131,7 +152,7 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
             <Repeat2 color={colors.textMuted} size={16} strokeWidth={2.2} />
             <AppText variant="bodyStrong">Frequência</AppText>
           </View>
-          <View style={styles.segmented}>
+          <View style={[styles.segmented, { backgroundColor: colors.surfaceMuted }]}>
             {frequencies.map((item) => {
               const isSelected = item === frequency;
 
@@ -140,7 +161,10 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
                   accessibilityRole="button"
                   key={item}
                   onPress={() => setFrequency(item)}
-                  style={[styles.segment, isSelected && styles.segmentSelected]}>
+                  style={[
+                    styles.segment,
+                    isSelected && { backgroundColor: colors.surface },
+                  ]}>
                   <AppText color={isSelected ? colors.primary : colors.textMuted} variant="caption">
                     {frequencyLabels[item]}
                   </AppText>
@@ -162,7 +186,14 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
                     accessibilityRole="button"
                     key={day.value}
                     onPress={() => toggleWeekday(day.value)}
-                    style={[styles.weekdayChip, isSelected && styles.chipSelected]}>
+                    style={[
+                      styles.weekdayChip,
+                      { borderColor: colors.border },
+                      isSelected && {
+                        backgroundColor: colors.primarySoft,
+                        borderColor: colors.primary,
+                      },
+                    ]}>
                     <AppText
                       color={isSelected ? colors.primary : colors.textMuted}
                       variant="caption">
@@ -178,15 +209,41 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
         {frequency === 'monthly' ? (
           <View style={styles.field}>
             <AppText variant="bodyStrong">Dia do mês</AppText>
-            <TextInput
-              keyboardType="number-pad"
-              maxLength={2}
-              onChangeText={setDayOfMonth}
-              placeholder="25"
-              placeholderTextColor={colors.textSoft}
-              style={styles.input}
-              value={dayOfMonth}
-            />
+            <View style={styles.monthlyOptions}>
+              <TextInput
+                keyboardType="number-pad"
+                maxLength={2}
+                onChangeText={setDayOfMonth}
+                placeholder="25"
+                placeholderTextColor={colors.textSoft}
+                style={[
+                  styles.monthDayInput,
+                  {
+                    backgroundColor: colors.surfaceMuted,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={dayOfMonth === lastDayValue ? '' : dayOfMonth}
+              />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setDayOfMonth(lastDayValue)}
+                style={[
+                  styles.lastDayChip,
+                  { borderColor: colors.border },
+                  dayOfMonth === lastDayValue && {
+                    backgroundColor: colors.primarySoft,
+                    borderColor: colors.primary,
+                  },
+                ]}>
+                <AppText
+                  color={dayOfMonth === lastDayValue ? colors.primary : colors.textMuted}
+                  variant="caption">
+                  Último dia do mês
+                </AppText>
+              </Pressable>
+            </View>
           </View>
         ) : null}
 
@@ -195,7 +252,7 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
           <TimePickerField defaultTime={DEFAULT_HABIT_TIME} onChange={setTime} value={time} />
         </View>
 
-        <View style={styles.preview}>
+        <View style={[styles.preview, { backgroundColor: colors.primarySoft }]}>
           <AppText color={colors.textMuted} variant="caption">
             Horário vazio salva {DEFAULT_HABIT_TIME}
           </AppText>
@@ -203,7 +260,7 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
       </Card>
 
       {error ? (
-        <View style={styles.errorBox}>
+        <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft }]}>
           <AppText color={colors.danger} variant="caption">
             {error}
           </AppText>
@@ -231,13 +288,24 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   input: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
-    color: colors.text,
     fontSize: typography.sizes.body,
     minHeight: 48,
+    paddingHorizontal: spacing.md,
+  },
+  monthlyOptions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  monthDayInput: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    fontSize: typography.sizes.body,
+    minHeight: 48,
+    minWidth: 88,
     paddingHorizontal: spacing.md,
   },
   categories: {
@@ -247,7 +315,6 @@ const styles = StyleSheet.create({
   },
   categoryChip: {
     alignItems: 'center',
-    borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
     flexDirection: 'row',
@@ -257,11 +324,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   chipSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
   },
   segmented: {
-    backgroundColor: colors.surfaceMuted,
     borderRadius: radius.md,
     flexDirection: 'row',
     padding: spacing.xs,
@@ -274,7 +338,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentSelected: {
-    backgroundColor: colors.surface,
   },
   weekdays: {
     flexDirection: 'row',
@@ -283,7 +346,6 @@ const styles = StyleSheet.create({
   },
   weekdayChip: {
     alignItems: 'center',
-    borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
     height: 40,
@@ -291,13 +353,19 @@ const styles = StyleSheet.create({
     minWidth: 48,
     paddingHorizontal: spacing.sm,
   },
+  lastDayChip: {
+    alignItems: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
   preview: {
-    backgroundColor: colors.primarySoft,
     borderRadius: radius.md,
     padding: spacing.md,
   },
   errorBox: {
-    backgroundColor: colors.dangerSoft,
     borderRadius: radius.md,
     padding: spacing.md,
   },

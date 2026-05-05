@@ -2,7 +2,7 @@ import { Clock3 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useThemeColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { TimePickerModal } from './TimePickerModal';
@@ -14,6 +14,7 @@ type TimePickerFieldProps = {
 };
 
 export function TimePickerField({ defaultTime, onChange, value }: TimePickerFieldProps) {
+  const colors = useThemeColors();
   const [isOpen, setIsOpen] = useState(false);
   const displayValue = value || defaultTime;
   const isUsingDefault = !value;
@@ -26,9 +27,17 @@ export function TimePickerField({ defaultTime, onChange, value }: TimePickerFiel
   return (
     <>
       <Pressable
+        accessibilityLabel={`Escolher horário, valor atual ${displayValue}`}
         accessibilityRole="button"
         onPress={() => setIsOpen(true)}
-        style={({ pressed }) => [styles.fieldButton, pressed && styles.pressed]}>
+        style={({ pressed }) => [
+          styles.fieldButton,
+          {
+            backgroundColor: colors.surfaceMuted,
+            borderColor: colors.border,
+          },
+          pressed && styles.pressed,
+        ]}>
         <Clock3 color={colors.textMuted} size={18} strokeWidth={2.2} />
         <View style={styles.fieldCopy}>
           <AppText color={isUsingDefault ? colors.textMuted : colors.text} variant="bodyStrong">
@@ -55,8 +64,6 @@ export function TimePickerField({ defaultTime, onChange, value }: TimePickerFiel
 const styles = StyleSheet.create({
   fieldButton: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
     flexDirection: 'row',

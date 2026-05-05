@@ -1,9 +1,10 @@
 import { CheckCircle2, Clock3 } from 'lucide-react-native';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useRef } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import type { TaskWithCategory } from '@/database';
 import { formatDateKeyForDisplay, getTaskDueLabel, isTaskPastDueToday } from '@/database/date';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useThemeColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { Card } from './Card';
@@ -18,8 +19,41 @@ type TaskCardProps = {
 };
 
 export function TaskCard({ onComplete, onPress, showDate = false, task }: TaskCardProps) {
-  const isPastDue = isTaskPastDueToday(task.date, task.time);
+  const colors = useThemeColors();
+  const checkScale = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0)).current;
+  const completed = task.status === 'completed';
+  const isPastDue = !completed && isTaskPastDueToday(task.date, task.time);
   const dueLabel = getTaskDueLabel(task.date, task.time);
+
+  function handleCompletePress() {
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(checkScale, {
+          duration: 90,
+          toValue: 1.12,
+          useNativeDriver: true,
+        }),
+        Animated.timing(checkScale, {
+          duration: 120,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(glowOpacity, {
+          duration: 80,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowOpacity, {
+          duration: 150,
+          toValue: 0,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(() => onComplete?.(task.id));
+  }
 
   return (
     <Pressable
@@ -27,14 +61,26 @@ export function TaskCard({ onComplete, onPress, showDate = false, task }: TaskCa
       disabled={!onPress}
       onPress={() => onPress?.(task.id)}
       style={({ pressed }) => pressed && styles.pressed}>
-      <Card style={isPastDue && styles.pastDueCard}>
+      <Card
+        style={[
+          isPastDue && { borderColor: colors.dangerSoft },
+          completed && {
+            backgroundColor: colors.surfaceMuted,
+            borderColor: colors.successSoft,
+            opacity: 0.86,
+          },
+        ]}>
         <View style={styles.row}>
           <View style={[styles.categoryIcon, { backgroundColor: `${task.category_color}18` }]}>
             <CategoryIcon color={task.category_color} name={task.category_icon} size={20} />
           </View>
 
           <View style={styles.content}>
-            <AppText numberOfLines={2} variant="bodyStrong">
+            <AppText
+              color={completed ? colors.textMuted : colors.text}
+              numberOfLines={2}
+              style={completed && styles.completedText}
+              variant="bodyStrong">
               {task.title}
             </AppText>
 
@@ -45,7 +91,12 @@ export function TaskCard({ onComplete, onPress, showDate = false, task }: TaskCa
                 label={task.category_name}
               />
 
-              <View style={[styles.dueChip, isPastDue && styles.pastDueChip]}>
+              <View
+                style={[
+                  styles.dueChip,
+                  { backgroundColor: colors.surfaceMuted },
+                  isPastDue && { backgroundColor: colors.dangerSoft },
+                ]}>
                 <Clock3
                   color={isPastDue ? colors.danger : colors.textMuted}
                   size={13}
@@ -69,10 +120,22 @@ export function TaskCard({ onComplete, onPress, showDate = false, task }: TaskCa
               accessibilityLabel="Concluir tarefa"
               accessibilityRole="button"
               hitSlop={10}
-              onPress={() => onComplete(task.id)}
+              onPress={handleCompletePress}
               style={({ pressed }) => [styles.completeButton, pressed && styles.pressed]}>
-              <CheckCircle2 color={colors.primary} size={24} strokeWidth={2.2} />
+              <Animated.View
+                style={[
+                  styles.checkGlow,
+                  { backgroundColor: colors.taskSoft, opacity: glowOpacity },
+                ]}
+              />
+              <Animated.View style={{ transform: [{ scale: checkScale }] }}>
+                <CheckCircle2 color={colors.task} size={24} strokeWidth={2.2} />
+              </Animated.View>
             </Pressable>
+          ) : null}
+
+          {completed && !onComplete ? (
+            <CheckCircle2 color={colors.success} size={24} strokeWidth={2.2} />
           ) : null}
         </View>
       </Card>
@@ -84,8 +147,7 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.72,
   },
-  pastDueCard: {
-    borderColor: colors.dangerSoft,
+  completedCard: {
   },
   row: {
     alignItems: 'flex-start',
@@ -103,6 +165,9 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.sm,
   },
+  completedText: {
+    textDecorationLine: 'line-through',
+  },
   metaRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -111,7 +176,6 @@ const styles = StyleSheet.create({
   },
   dueChip: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
     borderRadius: radius.sm,
     flexDirection: 'row',
     gap: spacing.xs,
@@ -119,7 +183,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   pastDueChip: {
-    backgroundColor: colors.dangerSoft,
   },
   completeButton: {
     alignItems: 'center',
@@ -127,5 +190,11 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     width: 40,
+  },
+  checkGlow: {
+    borderRadius: radius.xl,
+    height: 34,
+    position: 'absolute',
+    width: 34,
   },
 });

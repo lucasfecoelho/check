@@ -1,9 +1,10 @@
 import { CheckCircle2, Circle } from 'lucide-react-native';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useRef } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import type { HabitWithCategory, TodayHabit } from '@/database';
 import { getHabitScheduleLabel } from '@/database/habitRules';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useThemeColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { Card } from './Card';
@@ -22,7 +23,44 @@ function isTodayHabit(habit: HabitWithCategory | TodayHabit): habit is TodayHabi
 }
 
 export function HabitCard({ habit, onComplete, onPress, onUndo }: HabitCardProps) {
+  const colors = useThemeColors();
+  const checkScale = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0)).current;
   const completed = isTodayHabit(habit) && habit.is_completed;
+
+  function handleActionPress() {
+    if (completed) {
+      onUndo?.(habit.id);
+      return;
+    }
+
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(checkScale, {
+          duration: 90,
+          toValue: 1.12,
+          useNativeDriver: true,
+        }),
+        Animated.timing(checkScale, {
+          duration: 120,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(glowOpacity, {
+          duration: 80,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowOpacity, {
+          duration: 150,
+          toValue: 0,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(() => onComplete?.(habit.id));
+  }
 
   return (
     <Pressable
@@ -30,7 +68,13 @@ export function HabitCard({ habit, onComplete, onPress, onUndo }: HabitCardProps
       disabled={!onPress}
       onPress={() => onPress?.(habit.id)}
       style={({ pressed }) => pressed && styles.pressed}>
-      <Card style={completed && styles.completedCard}>
+      <Card
+        style={
+          completed && {
+            backgroundColor: colors.surfaceMuted,
+            borderColor: colors.successSoft,
+          }
+        }>
         <View style={styles.row}>
           <View style={[styles.categoryIcon, { backgroundColor: `${habit.category_color}18` }]}>
             <CategoryIcon color={habit.category_color} name={habit.category_icon} size={20} />
@@ -50,7 +94,10 @@ export function HabitCard({ habit, onComplete, onPress, onUndo }: HabitCardProps
                 icon={habit.category_icon}
                 label={habit.category_name}
               />
-              <AppText color={colors.textMuted} style={styles.scheduleChip} variant="caption">
+              <AppText
+                color={colors.textMuted}
+                style={[styles.scheduleChip, { backgroundColor: colors.surfaceMuted }]}
+                variant="caption">
                 {getHabitScheduleLabel(habit)}
               </AppText>
             </View>
@@ -61,12 +108,20 @@ export function HabitCard({ habit, onComplete, onPress, onUndo }: HabitCardProps
               accessibilityLabel={completed ? 'Desfazer conclusão' : 'Concluir hábito'}
               accessibilityRole="button"
               hitSlop={10}
-              onPress={() => (completed ? onUndo?.(habit.id) : onComplete?.(habit.id))}
+              onPress={handleActionPress}
               style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}>
+              <Animated.View
+                style={[
+                  styles.checkGlow,
+                  { backgroundColor: colors.habitSoft, opacity: glowOpacity },
+                ]}
+              />
               {completed ? (
                 <CheckCircle2 color={colors.success} size={24} strokeWidth={2.2} />
               ) : (
-                <Circle color={colors.primary} size={24} strokeWidth={2.2} />
+                <Animated.View style={{ transform: [{ scale: checkScale }] }}>
+                  <Circle color={colors.habit} size={24} strokeWidth={2.2} />
+                </Animated.View>
               )}
             </Pressable>
           ) : null}
@@ -85,8 +140,6 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   completedCard: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.successSoft,
   },
   row: {
     alignItems: 'flex-start',
@@ -114,7 +167,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   scheduleChip: {
-    backgroundColor: colors.surfaceMuted,
     borderRadius: radius.sm,
     minHeight: 28,
     paddingHorizontal: spacing.sm,
@@ -126,5 +178,11 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     width: 40,
+  },
+  checkGlow: {
+    borderRadius: radius.xl,
+    height: 34,
+    position: 'absolute',
+    width: 34,
   },
 });

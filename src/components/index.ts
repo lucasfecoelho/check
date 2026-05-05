@@ -8,6 +8,7 @@ export { DatePickerField } from './DatePickerField';
 export { EmptyState } from './EmptyState';
 export { HabitCard } from './HabitCard';
 export { HabitForm } from './HabitForm';
+export { OverdueTasksReviewCard } from './OverdueTasksReviewCard';
 export { PrimaryButton } from './PrimaryButton';
 export { SectionHeader } from './SectionHeader';
 export { TaskCard } from './TaskCard';

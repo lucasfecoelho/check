@@ -1,7 +1,8 @@
-export const colors = {
+export const lightColors = {
   primary: '#7C3AED',
   primaryDark: '#5B21B6',
   primarySoft: '#EDE9FE',
+  onPrimary: '#FFFFFF',
   background: '#F7F5FB',
   surface: '#FFFFFF',
   surfaceMuted: '#F1EEF7',
@@ -13,6 +14,16 @@ export const colors = {
   successSoft: '#DCFCE7',
   warning: '#D97706',
   warningSoft: '#FEF3C7',
+  task: '#2F8F5B',
+  taskSoft: '#E5F6EC',
+  habit: '#3B82C4',
+  habitSoft: '#E6F1FB',
+  settings: '#64748B',
+  settingsSoft: '#EEF2F6',
+  notification: '#B7791F',
+  notificationSoft: '#FEF3C7',
+  muted: '#7B7288',
+  mutedSoft: '#F1EEF7',
   danger: '#DC2626',
   dangerSoft: '#FEE2E2',
   categoryPurple: '#8B5CF6',
@@ -22,6 +33,47 @@ export const colors = {
   categoryYellow: '#CA8A04',
   categoryRose: '#E11D48',
   categoryGray: '#6B7280',
-} as const;
+};
 
+export const darkColors: typeof lightColors = {
+  primary: '#A78BFA',
+  primaryDark: '#7C3AED',
+  primarySoft: '#2E235B',
+  onPrimary: '#FFFFFF',
+  background: '#111827',
+  surface: '#1F2937',
+  surfaceMuted: '#273244',
+  border: '#374151',
+  text: '#F9FAFB',
+  textMuted: '#D1D5DB',
+  textSoft: '#9CA3AF',
+  success: '#86EFAC',
+  successSoft: '#14351F',
+  warning: '#FCD34D',
+  warningSoft: '#3B321A',
+  task: '#86EFAC',
+  taskSoft: '#153421',
+  habit: '#93C5FD',
+  habitSoft: '#172F4A',
+  settings: '#CBD5E1',
+  settingsSoft: '#2D3748',
+  notification: '#FCD34D',
+  notificationSoft: '#3B321A',
+  muted: '#D1D5DB',
+  mutedSoft: '#273244',
+  danger: '#FCA5A5',
+  dangerSoft: '#451A1A',
+  categoryPurple: '#A78BFA',
+  categoryBlue: '#60A5FA',
+  categoryGreen: '#34D399',
+  categoryOrange: '#FB923C',
+  categoryYellow: '#FACC15',
+  categoryRose: '#FB7185',
+  categoryGray: '#9CA3AF',
+};
+
+export const colors = lightColors;
+
+export type ThemePreference = 'light' | 'dark';
+export type ThemeColors = typeof lightColors;
 export type AppColor = keyof typeof colors;

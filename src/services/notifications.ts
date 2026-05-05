@@ -1,4 +1,4 @@
-import { isAfter, subMinutes } from 'date-fns';
+import { addMonths, endOfMonth, isAfter, set, subMinutes } from 'date-fns';
 // Import only local-notification modules. The expo-notifications root import loads
 // push-token auto-registration side effects, which are not used by Check.
 import cancelAllScheduledNotificationsAsync from 'expo-notifications/build/cancelAllScheduledNotificationsAsync';
@@ -25,7 +25,7 @@ import {
   getTodayDateKey,
   parseTaskDateTime,
 } from '@/database/date';
-import { parseHabitWeekdays } from '@/database/habitRules';
+import { LAST_DAY_OF_MONTH, parseHabitWeekdays } from '@/database/habitRules';
 import {
   CLEAR_ALL_NOTIFICATION_IDS_SQL,
   SELECT_HABITS_WITH_CATEGORY_SQL,
@@ -39,6 +39,9 @@ import type { HabitWithCategory, TaskWithCategory } from '@/database/types';
 
 const CHANNEL_ID = 'check-reminders';
 const NOTIFICATIONS_SETTING_KEY = 'notifications_enabled';
+const TASK_REMINDER_LEAD_MINUTES_SETTING_KEY = 'task_reminder_lead_minutes';
+const DEFAULT_TASK_REMINDER_LEAD_MINUTES = 30;
+const VALID_TASK_REMINDER_LEAD_MINUTES = [10, 30, 60] as const;
 let isNotificationHandlerConfigured = false;
 
 type NotificationIds = {
@@ -120,6 +123,24 @@ async function setNotificationsEnabledValue(enabled: boolean) {
   await db.runAsync(UPDATE_SETTING_SQL, [NOTIFICATIONS_SETTING_KEY, enabled ? 'true' : 'false']);
 }
 
+async function getTaskReminderLeadMinutes() {
+  const db = await getDatabase();
+  const setting = await db.getFirstAsync<SettingValueRow>(SELECT_SETTING_VALUE_SQL, [
+    TASK_REMINDER_LEAD_MINUTES_SETTING_KEY,
+  ]);
+  const parsedValue = Number(setting?.value);
+
+  return VALID_TASK_REMINDER_LEAD_MINUTES.includes(
+    parsedValue as (typeof VALID_TASK_REMINDER_LEAD_MINUTES)[number]
+  )
+    ? parsedValue
+    : DEFAULT_TASK_REMINDER_LEAD_MINUTES;
+}
+
+function getTaskReminderLeadLabel(minutes: number) {
+  return minutes === 60 ? '1 hora' : `${minutes} minutos`;
+}
+
 async function canScheduleNotifications() {
   if (!(await areNotificationsEnabled())) {
     return false;
@@ -142,6 +163,27 @@ function parseTime(time: string) {
 
 function stringifyNotificationIds(ids: string[]) {
   return ids.length > 0 ? JSON.stringify(ids) : null;
+}
+
+function getNextLastDayOfMonthNotificationDate(hour: number, minute: number) {
+  const now = new Date();
+  const candidate = set(endOfMonth(now), {
+    hours: hour,
+    milliseconds: 0,
+    minutes: minute,
+    seconds: 0,
+  });
+
+  if (isAfter(candidate, now)) {
+    return candidate;
+  }
+
+  return set(endOfMonth(addMonths(now, 1)), {
+    hours: hour,
+    milliseconds: 0,
+    minutes: minute,
+    seconds: 0,
+  });
 }
 
 function parseNotificationIdList(notificationId?: string | null) {
@@ -194,14 +236,15 @@ export async function scheduleTaskNotifications(task: Pick<TaskWithCategory, 'da
       return ids;
     }
 
-    const thirtyMinutesBefore = subMinutes(dueAt, 30);
+    const reminderLeadMinutes = await getTaskReminderLeadMinutes();
+    const reminderBeforeDue = subMinutes(dueAt, reminderLeadMinutes);
 
-    if (isAfter(thirtyMinutesBefore, new Date())) {
+    if (isAfter(reminderBeforeDue, new Date())) {
       ids.notification30MinId = await scheduleAtDate(
         `⚠️ ${task.title}`,
-        'Prazo em 30 minutos',
-        thirtyMinutesBefore,
-        { taskId: task.id, type: 'task-30min' }
+        `Prazo em ${getTaskReminderLeadLabel(reminderLeadMinutes)}`,
+        reminderBeforeDue,
+        { reminderLeadMinutes, taskId: task.id, type: 'task-before-due' }
       );
     }
 
@@ -290,6 +333,19 @@ export async function scheduleHabitNotification(
 
     if (!habit.day_of_month) {
       return null;
+    }
+
+    if (habit.day_of_month === LAST_DAY_OF_MONTH) {
+      // Expo has no native "last day of month" recurring trigger, so schedule
+      // the next local occurrence instead of passing an invalid monthly day.
+      return scheduleNotificationAsync({
+        content,
+        trigger: {
+          channelId: CHANNEL_ID,
+          date: getNextLastDayOfMonthNotificationDate(hour, minute),
+          type: SchedulableTriggerInputTypes.DATE,
+        },
+      });
     }
 
     return scheduleNotificationAsync({

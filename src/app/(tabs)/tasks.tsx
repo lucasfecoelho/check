@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppScreen, AppText, EmptyState, PrimaryButton, SectionHeader, TaskCard } from '@/components';
 import { getUpcomingTasks, initDatabase, type TaskWithCategory } from '@/database';
 import { getTaskDateGroup, type TaskDateGroupKey } from '@/database/date';
-import { colors, spacing } from '@/theme';
+import { spacing, useThemeColors } from '@/theme';
 
 const groups: { key: TaskDateGroupKey; title: string; subtitle: string }[] = [
   { key: 'today', title: 'Hoje', subtitle: 'Ainda aparecem mesmo com prazo passado' },
@@ -31,6 +31,7 @@ function groupTasks(tasks: TaskWithCategory[]) {
 }
 
 export default function TasksScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const [tasks, setTasks] = useState<TaskWithCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,6 +67,8 @@ export default function TasksScreen() {
         <EmptyState
           description="Crie sua primeira tarefa para ela aparecer aqui e na tela Hoje."
           icon={ListTodo}
+          iconBackgroundColor={colors.taskSoft}
+          iconColor={colors.task}
           title="Nenhuma tarefa cadastrada"
         />
       ) : null}

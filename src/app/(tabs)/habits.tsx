@@ -5,9 +5,10 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppScreen, AppText, EmptyState, HabitCard, PrimaryButton, SectionHeader } from '@/components';
 import { getHabits, initDatabase, type HabitWithCategory } from '@/database';
-import { colors, spacing } from '@/theme';
+import { spacing, useThemeColors } from '@/theme';
 
 export default function HabitsScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const [habits, setHabits] = useState<HabitWithCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +42,8 @@ export default function HabitsScreen() {
         <EmptyState
           description="Crie um hábito diário, semanal ou mensal para ele aparecer aqui e na tela Hoje."
           icon={Repeat2}
+          iconBackgroundColor={colors.habitSoft}
+          iconColor={colors.habit}
           title="Nenhum hábito cadastrado"
         />
       ) : null}

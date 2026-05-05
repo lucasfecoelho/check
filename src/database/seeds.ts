@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { colors } from '@/theme';
+import { colors } from '@/theme/colors';
 
 import { getTimestamp } from './date';
 import type { Category, Setting } from './types';
@@ -60,6 +60,18 @@ export const defaultSettings: Setting[] = [
   {
     key: 'notifications_enabled',
     value: 'true',
+  },
+  {
+    key: 'profile_avatar_uri',
+    value: '',
+  },
+  {
+    key: 'profile_name',
+    value: '',
+  },
+  {
+    key: 'task_reminder_lead_minutes',
+    value: '30',
   },
   {
     key: 'theme',

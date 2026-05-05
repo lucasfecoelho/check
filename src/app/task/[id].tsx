@@ -15,9 +15,10 @@ import {
   type TaskWithCategory,
   type UpdateTaskInput,
 } from '@/database';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useThemeColors } from '@/theme';
 
 export default function TaskDetailsScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -123,7 +124,11 @@ export default function TaskDetailsScreen() {
           <Pressable
             accessibilityRole="button"
             onPress={handleDeleteTask}
-            style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+            style={({ pressed }) => [
+              styles.deleteButton,
+              { backgroundColor: colors.dangerSoft },
+              pressed && styles.pressed,
+            ]}>
             <Trash2 color={colors.danger} size={18} strokeWidth={2.2} />
             <AppText color={colors.danger} variant="bodyStrong">
               Excluir
@@ -148,7 +153,6 @@ const styles = StyleSheet.create({
   deleteButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: colors.dangerSoft,
     borderRadius: radius.md,
     flexDirection: 'row',
     gap: spacing.sm,

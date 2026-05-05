@@ -4,19 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { initDatabase } from '@/database';
-import { colors } from '@/theme';
-
-const navigationTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: colors.background,
-    border: colors.border,
-    card: colors.surface,
-    primary: colors.primary,
-    text: colors.text,
-  },
-};
+import { AppThemeProvider, useAppTheme } from '@/theme';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -29,8 +17,30 @@ export default function RootLayout() {
   }, []);
 
   return (
+    <AppThemeProvider>
+      <RootNavigator />
+    </AppThemeProvider>
+  );
+}
+
+function RootNavigator() {
+  const { colors, preference } = useAppTheme();
+  const navigationTheme = {
+    ...DefaultTheme,
+    dark: preference === 'dark',
+    colors: {
+      ...DefaultTheme.colors,
+      background: colors.background,
+      border: colors.border,
+      card: colors.surface,
+      primary: colors.primary,
+      text: colors.text,
+    },
+  };
+
+  return (
     <ThemeProvider value={navigationTheme}>
-      <StatusBar style="dark" />
+      <StatusBar style={preference === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
       </Stack>

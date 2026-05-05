@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useThemeColors } from '@/theme';
 
 import { AppText } from './AppText';
 import { CategoryIcon } from './CategoryIcon';
@@ -13,6 +13,8 @@ type CategoryBadgeProps = {
 };
 
 export function CategoryBadge({ color, icon, label, tone = 'soft' }: CategoryBadgeProps) {
+  const colors = useThemeColors();
+
   return (
     <View style={[styles.container, tone === 'soft' && { backgroundColor: `${color}14` }]}>
       <CategoryIcon color={color} name={icon} size={14} />

@@ -115,6 +115,18 @@ WHERE tasks.date = ? AND tasks.status = 'pending'
 ORDER BY tasks.time ASC, tasks.created_at ASC;
 `;
 
+export const SELECT_TODAY_COMPLETED_TASKS_SQL = `
+${SELECT_TASKS_WITH_CATEGORY_FIELDS_SQL}
+WHERE tasks.date = ? AND tasks.status = 'completed'
+ORDER BY tasks.updated_at DESC, tasks.time ASC, tasks.created_at ASC;
+`;
+
+export const SELECT_OLD_PENDING_TASKS_SQL = `
+${SELECT_TASKS_WITH_CATEGORY_FIELDS_SQL}
+WHERE tasks.date < ? AND tasks.status = 'pending'
+ORDER BY tasks.date DESC, tasks.time ASC, tasks.created_at ASC;
+`;
+
 export const SELECT_UPCOMING_TASKS_SQL = `
 ${SELECT_TASKS_WITH_CATEGORY_FIELDS_SQL}
 WHERE tasks.date >= ? AND tasks.status = 'pending'
@@ -306,7 +318,7 @@ SET notification_id = NULL;
 
 export const CLEANUP_OLD_TASKS_SQL = `
 DELETE FROM tasks
-WHERE date < ?;
+WHERE date < ? AND status = 'completed';
 `;
 
 export const CLEANUP_OLD_HABIT_COMPLETIONS_SQL = `

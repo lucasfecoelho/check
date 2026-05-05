@@ -1,56 +1,70 @@
-# Welcome to your Expo app 👋
+# Check
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Check é um app mobile pessoal para organizar tarefas com prazo e hábitos recorrentes, com foco em simplicidade, notificações locais e uso diário no Android.
 
-## Get started
+## Funcionalidades
 
-1. Install dependencies
+- Tarefas com prazo
+- Hábitos diários, semanais e mensais
+- Tela inicial com itens do dia
+- Notificações locais
+- Categorias
+- Configurações de aparência
+- SQLite local
+- Sem login e sem nuvem
 
-   ```bash
-   npm install
-   ```
+## Stack
 
-2. Start the app
+- Expo
+- React Native
+- TypeScript
+- Expo Router
+- SQLite
+- Expo Notifications
+- StyleSheet
+- Lucide React Native
+- date-fns
 
-   ```bash
-   npx expo start
-   ```
+## Como Rodar
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Instale as dependências:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Inicie o app:
 
-### Other setup steps
+```bash
+npx expo start
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Se houver dificuldade de conexão com o celular na rede local, use tunnel:
 
-## Learn more
+```bash
+npx expo start --tunnel
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Observações
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- O app foi pensado inicialmente para Android.
+- O app usa notificações locais, não push notifications remotas.
+- O app salva os dados localmente no celular.
+- Não há backend, login, Firebase, Supabase ou nuvem.
 
-## Join the community
+## Checklist de Testes
 
-Join our community of developers creating universal apps.
+- Criar tarefa
+- Editar tarefa
+- Concluir tarefa
+- Criar hábito diário
+- Criar hábito semanal
+- Criar hábito mensal
+- Testar notificação
+- Alterar configurações
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Futuro
+
+- Gerar APK com EAS Build
+- Melhorar ícone e splash
+- Refinar experiência visual

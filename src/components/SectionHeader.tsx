@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useThemeColors } from '@/theme';
 
 import { AppText } from './AppText';
 
@@ -13,13 +13,15 @@ type SectionHeaderProps = {
 };
 
 export function SectionHeader({ action, count, subtitle, title }: SectionHeaderProps) {
+  const colors = useThemeColors();
+
   return (
     <View style={styles.container}>
       <View style={styles.copy}>
         <View style={styles.titleRow}>
           <AppText variant="title">{title}</AppText>
           {typeof count === 'number' ? (
-            <View style={styles.badge}>
+            <View style={[styles.badge, { backgroundColor: colors.primarySoft }]}>
               <AppText color={colors.primary} variant="caption">
                 {count}
               </AppText>
@@ -55,7 +57,6 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
     borderRadius: radius.sm,
     minWidth: 28,
     paddingHorizontal: spacing.sm,

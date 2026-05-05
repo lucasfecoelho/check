@@ -1,5 +1,8 @@
-import { getMonthDay, getWeekdayIndex, parseDateKey } from './date';
+import { getMonthDay, getWeekdayIndex, isLastDayOfMonth, parseDateKey } from './date';
 import type { Habit, HabitFrequency } from './types';
+
+// day_of_month = -1 represents "Último dia do mês" for monthly habits.
+export const LAST_DAY_OF_MONTH = -1;
 
 export const weekdayOptions = [
   { label: 'Domingo', shortLabel: 'Dom', value: 0 },
@@ -61,6 +64,10 @@ export function shouldHabitAppearOnDate(habit: Habit, dateKey: string) {
   }
 
   if (habit.frequency === 'monthly') {
+    if (habit.day_of_month === LAST_DAY_OF_MONTH) {
+      return isLastDayOfMonth(date);
+    }
+
     return habit.day_of_month === getMonthDay(date);
   }
 
@@ -71,7 +78,9 @@ export function getWeekdayLabel(day: number) {
   return weekdayOptions.find((option) => option.value === day)?.label ?? '';
 }
 
-export function getHabitScheduleLabel(habit: Pick<Habit, 'day_of_month' | 'days_of_week' | 'frequency' | 'time'>) {
+export function getHabitScheduleLabel(
+  habit: Pick<Habit, 'day_of_month' | 'days_of_week' | 'frequency' | 'time'>
+) {
   if (habit.frequency === 'daily') {
     return `Diário · ${habit.time}`;
   }
@@ -79,6 +88,10 @@ export function getHabitScheduleLabel(habit: Pick<Habit, 'day_of_month' | 'days_
   if (habit.frequency === 'weekly') {
     const days = parseHabitWeekdays(habit.days_of_week).map(getWeekdayLabel).join(', ');
     return `Semanal · ${days || 'Sem dia'} · ${habit.time}`;
+  }
+
+  if (habit.day_of_month === LAST_DAY_OF_MONTH) {
+    return `Mensal · Último dia · ${habit.time}`;
   }
 
   return `Mensal · Dia ${habit.day_of_month ?? '-'} · ${habit.time}`;

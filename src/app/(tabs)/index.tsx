@@ -1,27 +1,39 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CheckCircle2, ListTodo, Plus, Repeat2 } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  StyleSheet,
+  UIManager,
+  View,
+} from 'react-native';
 
 import {
   AppScreen,
   AppText,
   EmptyState,
   HabitCard,
+  OverdueTasksReviewCard,
   SectionHeader,
   TaskCard,
 } from '@/components';
 import {
   completeHabitForToday,
   completeTask,
+  deleteTask,
   deleteHabitCompletionForToday,
+  getSettings,
+  getOldPendingTasks,
+  getTodayCompletedTasks,
   getTodayHabits,
   getTodayTasks,
   initDatabase,
   type TaskWithCategory,
   type TodayHabit,
 } from '@/database';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useThemeColors } from '@/theme';
 
 function formatToday() {
   const formatted = new Intl.DateTimeFormat('pt-BR', {
@@ -33,16 +45,54 @@ function formatToday() {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
+function getGreeting(name: string) {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+  const trimmedName = name.trim();
+
+  return trimmedName ? `${greeting}, ${trimmedName}` : greeting;
+}
+
+function animateNextLayoutChange() {
+  LayoutAnimation.configureNext({
+    duration: 180,
+    create: {
+      duration: 170,
+      property: LayoutAnimation.Properties.opacity,
+      type: LayoutAnimation.Types.easeInEaseOut,
+    },
+    delete: {
+      duration: 150,
+      property: LayoutAnimation.Properties.opacity,
+      type: LayoutAnimation.Types.easeInEaseOut,
+    },
+    update: {
+      duration: 180,
+      type: LayoutAnimation.Types.easeInEaseOut,
+    },
+  });
+}
+
 export default function TodayScreen() {
   console.log('[Check][Today] render');
+  const colors = useThemeColors();
   const router = useRouter();
   const [tasks, setTasks] = useState<TaskWithCategory[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<TaskWithCategory[]>([]);
+  const [oldPendingTasks, setOldPendingTasks] = useState<TaskWithCategory[]>([]);
   const [habits, setHabits] = useState<TodayHabit[]>([]);
+  const [profileName, setProfileName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const pendingHabits = useMemo(() => habits.filter((habit) => !habit.is_completed), [habits]);
   const completedHabits = useMemo(() => habits.filter((habit) => habit.is_completed), [habits]);
 
-  const loadToday = useCallback(async () => {
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      UIManager.setLayoutAnimationEnabledExperimental?.(true);
+    }
+  }, []);
+
+  const loadToday = useCallback(async (animateLayout = false) => {
     console.log('[Check][Today] load start');
     setIsLoading(true);
 
@@ -51,13 +101,27 @@ export default function TodayScreen() {
       await initDatabase();
       console.log('[Check][Today] after database init');
 
-      const [todayTasks, todayHabits] = await Promise.all([getTodayTasks(), getTodayHabits()]);
+      const [todayTasks, todayCompletedTasks, oldTasks, todayHabits, settings] = await Promise.all([
+        getTodayTasks(),
+        getTodayCompletedTasks(),
+        getOldPendingTasks(),
+        getTodayHabits(),
+        getSettings(),
+      ]);
 
       console.log(
-        `[Check][Today] loaded ${todayTasks.length} tasks and ${todayHabits.length} habits`
+        `[Check][Today] loaded ${todayTasks.length} pending tasks, ${todayCompletedTasks.length} completed tasks, ${oldTasks.length} old pending tasks and ${todayHabits.length} habits`
       );
+
+      if (animateLayout) {
+        animateNextLayoutChange();
+      }
+
       setTasks(todayTasks);
+      setCompletedTasks(todayCompletedTasks);
+      setOldPendingTasks(oldTasks);
       setHabits(todayHabits);
+      setProfileName(settings.find((setting) => setting.key === 'profile_name')?.value ?? '');
     } catch (error) {
       console.error('[Check][Today] failed to load today data', error);
     } finally {
@@ -76,31 +140,36 @@ export default function TodayScreen() {
 
   async function handleCompleteTask(id: string) {
     await completeTask(id);
-    setTasks((currentTasks) => currentTasks.filter((task) => task.id !== id));
+    await loadToday(true);
+  }
+
+  async function handleIgnoreOldTask(id: string) {
+    await deleteTask(id);
+    await loadToday(true);
   }
 
   async function handleCompleteHabit(id: string) {
     await completeHabitForToday(id);
-    await loadToday();
+    await loadToday(true);
   }
 
   async function handleUndoHabit(id: string) {
     await deleteHabitCompletionForToday(id);
-    await loadToday();
+    await loadToday(true);
   }
 
   return (
     <AppScreen>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <AppText variant="heading">Check</AppText>
-          <View style={styles.datePill}>
+          <AppText variant="heading">{getGreeting(profileName)}</AppText>
+          <View style={[styles.datePill, { backgroundColor: colors.primarySoft }]}>
             <AppText color={colors.primary} variant="caption">
               {formatToday()}
             </AppText>
           </View>
         </View>
-        <View style={styles.logoMark}>
+        <View style={[styles.logoMark, { backgroundColor: colors.primarySoft }]}>
           <CheckCircle2 color={colors.primary} size={28} strokeWidth={2.4} />
         </View>
       </View>
@@ -109,22 +178,36 @@ export default function TodayScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push('/task/new')}
-          style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}>
-          <Plus color={colors.surface} size={18} strokeWidth={2.4} />
-          <AppText color={colors.surface} variant="bodyStrong">
+          style={({ pressed }) => [
+            styles.quickAction,
+            { backgroundColor: colors.primary },
+            pressed && styles.pressed,
+          ]}>
+          <Plus color={colors.onPrimary} size={18} strokeWidth={2.4} />
+          <AppText color={colors.onPrimary} variant="bodyStrong">
             Tarefa
           </AppText>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push('/habit/new')}
-          style={({ pressed }) => [styles.quickActionSecondary, pressed && styles.pressed]}>
-          <Repeat2 color={colors.primary} size={18} strokeWidth={2.4} />
-          <AppText color={colors.primary} variant="bodyStrong">
+          style={({ pressed }) => [
+            styles.quickActionSecondary,
+            { backgroundColor: colors.habitSoft },
+            pressed && styles.pressed,
+          ]}>
+          <Repeat2 color={colors.habit} size={18} strokeWidth={2.4} />
+          <AppText color={colors.habit} variant="bodyStrong">
             Hábito
           </AppText>
         </Pressable>
       </View>
+
+      <OverdueTasksReviewCard
+        onComplete={handleCompleteTask}
+        onIgnore={handleIgnoreOldTask}
+        tasks={oldPendingTasks}
+      />
 
       <View style={styles.section}>
         <SectionHeader count={tasks.length} subtitle="Pendentes e prazos do dia" title="Tarefas de hoje" />
@@ -137,6 +220,8 @@ export default function TodayScreen() {
           <EmptyState
             description="Nenhuma tarefa pendente para hoje."
             icon={ListTodo}
+            iconBackgroundColor={colors.taskSoft}
+            iconColor={colors.task}
             title="Hoje está leve"
           />
         ) : null}
@@ -153,22 +238,33 @@ export default function TodayScreen() {
           <EmptyState
             description="Nenhum hábito pendente para hoje."
             icon={Repeat2}
+            iconBackgroundColor={colors.habitSoft}
+            iconColor={colors.habit}
             title="Tudo certo por aqui"
           />
         ) : null}
       </View>
 
       <View style={styles.section}>
-        <SectionHeader count={completedHabits.length} subtitle="Concluídos no ciclo atual" title="Concluídos hoje" />
+        <SectionHeader
+          count={completedTasks.length + completedHabits.length}
+          subtitle="Tarefas e hábitos finalizados hoje"
+          title="Concluídos hoje"
+        />
         <View style={styles.list}>
+          {completedTasks.map((task) => (
+            <TaskCard key={task.id} task={task} />
+          ))}
           {completedHabits.map((habit) => (
             <HabitCard habit={habit} key={habit.id} onUndo={handleUndoHabit} />
           ))}
         </View>
-        {!isLoading && completedHabits.length === 0 ? (
+        {!isLoading && completedTasks.length === 0 && completedHabits.length === 0 ? (
           <EmptyState
-            description="Quando concluir um hábito hoje, ele continua aqui."
+            description="Quando concluir algo hoje, ele continua aqui."
             icon={CheckCircle2}
+            iconBackgroundColor={colors.successSoft}
+            iconColor={colors.success}
             title="Nada concluído ainda"
           />
         ) : null}
@@ -188,14 +284,12 @@ const styles = StyleSheet.create({
   },
   datePill: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.primarySoft,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
   logoMark: {
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
     borderRadius: radius.xl,
     height: 56,
     justifyContent: 'center',
@@ -207,7 +301,6 @@ const styles = StyleSheet.create({
   },
   quickAction: {
     alignItems: 'center',
-    backgroundColor: colors.primary,
     borderRadius: radius.sm,
     flex: 1,
     flexDirection: 'row',
@@ -217,7 +310,6 @@ const styles = StyleSheet.create({
   },
   quickActionSecondary: {
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
     borderRadius: radius.sm,
     flex: 1,
     flexDirection: 'row',

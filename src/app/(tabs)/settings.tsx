@@ -1,31 +1,20 @@
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
-import { Bell, Clock3, Database, Moon, Smartphone } from 'lucide-react-native';
+import { Bell, Camera, Clock3, Moon, User } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { AppScreen, AppText, Card, PrimaryButton, SectionHeader } from '@/components';
 import { getSettings, initDatabase, updateSetting } from '@/database';
 import { DEFAULT_TASK_TIME, isTaskTimeValid } from '@/database/date';
-import { colors, radius, spacing, typography } from '@/theme';
+import { radius, spacing, typography, useAppTheme, type ThemePreference } from '@/theme';
 
-type ThemePreference = 'light' | 'dark';
+type TaskReminderLeadMinutes = 10 | 30 | 60;
 
-const appInfo = [
-  {
-    icon: Smartphone,
-    label: 'Check',
-    value: 'App pessoal para tarefas e hábitos',
-  },
-  {
-    icon: Database,
-    label: 'Dados locais',
-    value: 'SQLite local no aparelho',
-  },
-  {
-    icon: Moon,
-    label: 'Versão 0.1.0',
-    value: 'MVP em tema claro',
-  },
+const taskReminderOptions: { label: string; value: TaskReminderLeadMinutes }[] = [
+  { label: '10 min', value: 10 },
+  { label: '30 min', value: 30 },
+  { label: '1 hora', value: 60 },
 ];
 
 async function getNotificationService() {
@@ -37,22 +26,34 @@ async function getNotificationService() {
   }
 }
 
-export default function SettingsScreen() {
+export default function ProfileScreen() {
+  const { colors, preference: themePreference, setPreference: setThemePreference } = useAppTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [defaultTaskTime, setDefaultTaskTime] = useState(DEFAULT_TASK_TIME);
   const [draftDefaultTime, setDraftDefaultTime] = useState(DEFAULT_TASK_TIME);
-  const [themePreference, setThemePreference] = useState<ThemePreference>('light');
+  const [profileName, setProfileName] = useState('');
+  const [draftProfileName, setDraftProfileName] = useState('');
+  const [profileAvatarUri, setProfileAvatarUri] = useState('');
+  const [taskReminderLeadMinutes, setTaskReminderLeadMinutes] =
+    useState<TaskReminderLeadMinutes>(30);
   const [timeError, setTimeError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isPickingAvatar, setIsPickingAvatar] = useState(false);
   const [isSavingTime, setIsSavingTime] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const loadSettings = useCallback(async () => {
     await initDatabase();
     const settings = await getSettings();
     const defaultTime = settings.find((setting) => setting.key === 'default_task_time')?.value;
     const resolvedTime = defaultTime ?? DEFAULT_TASK_TIME;
-    const theme = settings.find((setting) => setting.key === 'theme')?.value;
+    const name = settings.find((setting) => setting.key === 'profile_name')?.value ?? '';
+    const avatarUri = settings.find((setting) => setting.key === 'profile_avatar_uri')?.value ?? '';
+    const reminderLeadSetting = settings.find(
+      (setting) => setting.key === 'task_reminder_lead_minutes'
+    )?.value;
+    const reminderLead = Number(reminderLeadSetting);
 
     const notificationsSetting = settings.find((setting) => setting.key === 'notifications_enabled')?.value;
     const notificationService = await getNotificationService();
@@ -62,7 +63,14 @@ export default function SettingsScreen() {
 
     setDefaultTaskTime(resolvedTime);
     setDraftDefaultTime(resolvedTime);
-    setThemePreference(theme === 'dark' ? 'dark' : 'light');
+    setProfileName(name);
+    setDraftProfileName(name);
+    setProfileAvatarUri(avatarUri);
+    setTaskReminderLeadMinutes(
+      taskReminderOptions.some((option) => option.value === reminderLead)
+        ? (reminderLead as TaskReminderLeadMinutes)
+        : 30
+    );
     setNotificationsEnabled(enabled);
   }, []);
 
@@ -71,6 +79,65 @@ export default function SettingsScreen() {
       loadSettings().catch(console.error);
     }, [loadSettings])
   );
+
+  async function handleSaveProfileName() {
+    const normalizedName = draftProfileName.trim();
+
+    setIsSavingProfile(true);
+    await updateSetting('profile_name', normalizedName);
+    setProfileName(normalizedName);
+    setDraftProfileName(normalizedName);
+    setIsSavingProfile(false);
+  }
+
+  async function handlePickProfilePhoto() {
+    if (isPickingAvatar) {
+      return;
+    }
+
+    setIsPickingAvatar(true);
+
+    try {
+      const currentPermission = await ImagePicker.getMediaLibraryPermissionsAsync();
+      const permission = currentPermission.granted
+        ? currentPermission
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          'Permissão necessária',
+          'Permita o acesso às fotos para escolher uma imagem do perfil.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        mediaTypes: ['images'],
+        quality: 0.85,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const selectedUri = result.assets[0]?.uri;
+
+      if (!selectedUri) {
+        Alert.alert('Foto não selecionada', 'Não foi possível carregar a imagem escolhida.');
+        return;
+      }
+
+      await updateSetting('profile_avatar_uri', selectedUri);
+      setProfileAvatarUri(selectedUri);
+    } catch (error) {
+      console.warn('[Check][profile] Failed to pick profile photo', error);
+      Alert.alert('Não foi possível alterar a foto', 'Tente escolher outra imagem da galeria.');
+    } finally {
+      setIsPickingAvatar(false);
+    }
+  }
 
   async function handleToggleNotifications(value: boolean) {
     setIsUpdating(true);
@@ -121,24 +188,112 @@ export default function SettingsScreen() {
     setIsSavingTime(false);
   }
 
-  async function handleChangeThemePreference(value: ThemePreference) {
-    setThemePreference(value);
-    await updateSetting('theme', value);
+  async function handleChangeTaskReminderLead(value: TaskReminderLeadMinutes) {
+    setTaskReminderLeadMinutes(value);
+    await updateSetting('task_reminder_lead_minutes', String(value));
   }
+
+  async function handleChangeThemePreference(value: ThemePreference) {
+    await setThemePreference(value);
+  }
+
+  const profileInitial = profileName.trim().charAt(0).toUpperCase();
 
   return (
     <AppScreen>
       <View style={styles.header}>
-        <AppText variant="heading">Configurações</AppText>
+        <AppText variant="heading">Perfil</AppText>
         <AppText color={colors.textMuted}>Preferências locais do Check para Android.</AppText>
       </View>
 
+      <Card style={styles.profileCard}>
+        <View style={styles.profileHeader}>
+          <Pressable
+            accessibilityLabel="Alterar foto do perfil"
+            accessibilityRole="button"
+            disabled={isPickingAvatar}
+            onPress={handlePickProfilePhoto}
+            style={({ pressed }) => [
+              styles.avatarWrap,
+              { backgroundColor: colors.primarySoft, borderColor: colors.border },
+              pressed && styles.pressed,
+              isPickingAvatar && styles.avatarDisabled,
+            ]}>
+            {profileAvatarUri ? (
+              <Image source={{ uri: profileAvatarUri }} style={styles.avatarImage} />
+            ) : profileInitial ? (
+              <AppText color={colors.primary} style={styles.avatarInitial} variant="heading">
+                {profileInitial}
+              </AppText>
+            ) : (
+              <User color={colors.primary} size={34} strokeWidth={2.2} />
+            )}
+            <View
+              style={[
+                styles.cameraBadge,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}>
+              <Camera color={colors.primary} size={14} strokeWidth={2.2} />
+            </View>
+          </Pressable>
+
+          <View style={styles.profileCopy}>
+            <AppText variant="title">{profileName || 'Seu perfil'}</AppText>
+            <AppText color={colors.textMuted}>Perfil salvo apenas neste aparelho.</AppText>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isPickingAvatar}
+              onPress={handlePickProfilePhoto}
+              style={({ pressed }) => [
+                styles.photoButton,
+                { backgroundColor: colors.primarySoft },
+                pressed && styles.pressed,
+                isPickingAvatar && styles.avatarDisabled,
+              ]}>
+              <Camera color={colors.primary} size={15} strokeWidth={2.2} />
+              <AppText color={colors.primary} variant="caption">
+                {isPickingAvatar ? 'Abrindo galeria...' : 'Alterar foto'}
+              </AppText>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.profileEditor}>
+          <TextInput
+            autoCapitalize="words"
+            onChangeText={setDraftProfileName}
+            placeholder="Seu nome"
+            placeholderTextColor={colors.textSoft}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
+            value={draftProfileName}
+          />
+          <PrimaryButton
+            disabled={isSavingProfile}
+            label={isSavingProfile ? 'Salvando...' : 'Salvar'}
+            onPress={handleSaveProfileName}
+            style={styles.saveButton}
+          />
+        </View>
+      </Card>
+
       <View style={styles.section}>
-        <SectionHeader title="Lembretes" subtitle="Notificações locais no aparelho" />
+        <SectionHeader title="Configurações" subtitle="Preferências do app" />
+
         <Card>
           <View style={styles.row}>
-            <View style={styles.iconWrap}>
-              <Bell color={colors.primary} size={22} strokeWidth={2.2} />
+            <View
+              style={[
+                styles.iconWrap,
+                { backgroundColor: colors.notificationSoft },
+              ]}>
+              <Bell color={colors.notification} size={22} strokeWidth={2.2} />
             </View>
             <View style={styles.copy}>
               <AppText variant="bodyStrong">Notificações</AppText>
@@ -162,14 +317,52 @@ export default function SettingsScreen() {
             />
           </View>
         </Card>
-      </View>
 
-      <View style={styles.section}>
-        <SectionHeader title="Padrões" subtitle="Valores usados ao criar novos itens" />
+        <Card style={styles.reminderCard}>
+          <View style={styles.row}>
+            <View
+              style={[
+                styles.iconWrap,
+                { backgroundColor: colors.notificationSoft },
+              ]}>
+              <Clock3 color={colors.notification} size={22} strokeWidth={2.2} />
+            </View>
+            <View style={styles.copy}>
+              <AppText variant="bodyStrong">Aviso antes do prazo</AppText>
+              <AppText color={colors.textMuted}>
+                Usado nas novas tarefas e nas tarefas editadas.
+              </AppText>
+            </View>
+          </View>
+
+          <View style={[styles.segmented, { backgroundColor: colors.surfaceMuted }]}>
+            {taskReminderOptions.map((option) => {
+              const isSelected = option.value === taskReminderLeadMinutes;
+
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  key={option.value}
+                  onPress={() => handleChangeTaskReminderLead(option.value).catch(console.error)}
+                  style={[
+                    styles.segment,
+                    isSelected && { backgroundColor: colors.surface },
+                  ]}>
+                  <AppText
+                    color={isSelected ? colors.primary : colors.textMuted}
+                    variant="bodyStrong">
+                    {option.label}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
+
         <Card style={styles.timeCard}>
           <View style={styles.row}>
-            <View style={styles.iconWrap}>
-              <Clock3 color={colors.primary} size={22} strokeWidth={2.2} />
+            <View style={[styles.iconWrap, { backgroundColor: colors.taskSoft }]}>
+              <Clock3 color={colors.task} size={22} strokeWidth={2.2} />
             </View>
             <View style={styles.copy}>
               <AppText variant="bodyStrong">Horário padrão de tarefas</AppText>
@@ -185,7 +378,14 @@ export default function SettingsScreen() {
               onChangeText={setDraftDefaultTime}
               placeholder={DEFAULT_TASK_TIME}
               placeholderTextColor={colors.textSoft}
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surfaceMuted,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
               value={draftDefaultTime}
             />
             <PrimaryButton
@@ -196,21 +396,18 @@ export default function SettingsScreen() {
             />
           </View>
           {timeError ? (
-            <View style={styles.errorBox}>
+            <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft }]}>
               <AppText color={colors.danger} variant="caption">
                 {timeError}
               </AppText>
             </View>
           ) : null}
         </Card>
-      </View>
 
-      <View style={styles.section}>
-        <SectionHeader title="Aparência" subtitle="Preferência visual do app" />
         <Card>
           <View style={styles.row}>
-            <View style={styles.iconWrap}>
-              <Moon color={colors.primary} size={22} strokeWidth={2.2} />
+            <View style={[styles.iconWrap, { backgroundColor: colors.settingsSoft }]}>
+              <Moon color={colors.settings} size={22} strokeWidth={2.2} />
             </View>
             <View style={styles.copy}>
               <AppText variant="bodyStrong">Tema</AppText>
@@ -220,13 +417,13 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <View style={styles.segmented}>
+          <View style={[styles.segmented, { backgroundColor: colors.surfaceMuted }]}>
             <Pressable
               accessibilityRole="button"
               onPress={() => handleChangeThemePreference('light').catch(console.error)}
               style={[
                 styles.segment,
-                themePreference === 'light' && styles.segmentSelected,
+                themePreference === 'light' && { backgroundColor: colors.surface },
               ]}>
               <AppText
                 color={themePreference === 'light' ? colors.primary : colors.textMuted}
@@ -239,7 +436,7 @@ export default function SettingsScreen() {
               onPress={() => handleChangeThemePreference('dark').catch(console.error)}
               style={[
                 styles.segment,
-                themePreference === 'dark' && styles.segmentSelected,
+                themePreference === 'dark' && { backgroundColor: colors.surface },
               ]}>
               <AppText
                 color={themePreference === 'dark' ? colors.primary : colors.textMuted}
@@ -252,22 +449,10 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="Sobre o app" subtitle="Escopo do MVP" />
-        <View style={styles.list}>
-          {appInfo.map((item) => (
-            <Card key={item.label}>
-              <View style={styles.row}>
-                <View style={styles.iconWrap}>
-                  <item.icon color={colors.primary} size={22} strokeWidth={2.2} />
-                </View>
-                <View style={styles.copy}>
-                  <AppText variant="bodyStrong">{item.label}</AppText>
-                  <AppText color={colors.textMuted}>{item.value}</AppText>
-                </View>
-              </View>
-            </Card>
-          ))}
-        </View>
+        <SectionHeader title="Sobre o app" />
+        <Card>
+          <AppText variant="bodyStrong">Versão 1.2.5</AppText>
+        </Card>
       </View>
     </AppScreen>
   );
@@ -280,8 +465,65 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.md,
   },
-  list: {
+  profileCard: {
+    gap: spacing.lg,
+  },
+  profileHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  avatarWrap: {
+    alignItems: 'center',
+    borderRadius: 36,
+    borderWidth: 1,
+    height: 72,
+    justifyContent: 'center',
+    width: 72,
+  },
+  avatarDisabled: {
+    opacity: 0.6,
+  },
+  avatarImage: {
+    borderRadius: 36,
+    height: 72,
+    width: 72,
+  },
+  avatarInitial: {
+    textAlign: 'center',
+  },
+  cameraBadge: {
+    alignItems: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    bottom: -2,
+    height: 26,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: -2,
+    width: 26,
+  },
+  profileCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  photoButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: radius.sm,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    minHeight: 32,
+    paddingHorizontal: spacing.sm,
+  },
+  profileEditor: {
+    alignItems: 'center',
+    flexDirection: 'row',
     gap: spacing.md,
+  },
+  pressed: {
+    opacity: 0.72,
   },
   row: {
     alignItems: 'center',
@@ -290,7 +532,6 @@ const styles = StyleSheet.create({
   },
   iconWrap: {
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
     borderRadius: radius.sm,
     height: 44,
     justifyContent: 'center',
@@ -303,17 +544,17 @@ const styles = StyleSheet.create({
   timeCard: {
     gap: spacing.lg,
   },
+  reminderCard: {
+    gap: spacing.lg,
+  },
   timeEditor: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.md,
   },
   input: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
-    color: colors.text,
     flex: 1,
     fontSize: typography.sizes.body,
     minHeight: 48,
@@ -323,12 +564,10 @@ const styles = StyleSheet.create({
     minWidth: 104,
   },
   errorBox: {
-    backgroundColor: colors.dangerSoft,
     borderRadius: radius.md,
     padding: spacing.md,
   },
   segmented: {
-    backgroundColor: colors.surfaceMuted,
     borderRadius: radius.md,
     flexDirection: 'row',
     marginTop: spacing.lg,
@@ -340,8 +579,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     minHeight: 40,
-  },
-  segmentSelected: {
-    backgroundColor: colors.surface,
   },
 });
