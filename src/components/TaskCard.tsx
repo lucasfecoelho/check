@@ -63,6 +63,8 @@ export function TaskCard({ onComplete, onPress, showDate = false, task }: TaskCa
       style={({ pressed }) => pressed && styles.pressed}>
       <Card
         style={[
+          styles.card,
+          { borderColor: `${task.category_color}24` },
           isPastDue && { borderColor: colors.dangerSoft },
           completed && {
             backgroundColor: colors.surfaceMuted,
@@ -71,6 +73,13 @@ export function TaskCard({ onComplete, onPress, showDate = false, task }: TaskCa
           },
         ]}>
         <View style={styles.row}>
+          <View
+            style={[
+              styles.accent,
+              { backgroundColor: isPastDue ? colors.warning : task.category_color },
+              completed && { backgroundColor: colors.success },
+            ]}
+          />
           <View style={[styles.categoryIcon, { backgroundColor: `${task.category_color}18` }]}>
             <CategoryIcon color={task.category_color} name={task.category_icon} size={20} />
           </View>
@@ -147,19 +156,28 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.72,
   },
-  completedCard: {
+  card: {
+    overflow: 'hidden',
+    paddingLeft: spacing.xl,
   },
   row: {
     alignItems: 'flex-start',
     flexDirection: 'row',
     gap: spacing.md,
   },
+  accent: {
+    bottom: 0,
+    left: -spacing.xl,
+    position: 'absolute',
+    top: 0,
+    width: 4,
+  },
   categoryIcon: {
     alignItems: 'center',
     borderRadius: radius.md,
-    height: 42,
+    height: 46,
     justifyContent: 'center',
-    width: 42,
+    width: 46,
   },
   content: {
     flex: 1,
@@ -176,7 +194,7 @@ const styles = StyleSheet.create({
   },
   dueChip: {
     alignItems: 'center',
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     flexDirection: 'row',
     gap: spacing.xs,
     minHeight: 28,
@@ -186,7 +204,7 @@ const styles = StyleSheet.create({
   },
   completeButton: {
     alignItems: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     height: 40,
     justifyContent: 'center',
     width: 40,

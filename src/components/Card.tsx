@@ -29,12 +29,12 @@ export function Card({ children, style }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: radius.sm,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    padding: spacing.lg,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 2,
+    padding: spacing.xl,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 22,
+    elevation: 3,
   },
 });

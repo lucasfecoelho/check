@@ -83,7 +83,7 @@ export function DatePickerField({ dateKey, onChange }: DatePickerFieldProps) {
         style={({ pressed }) => [
           styles.fieldButton,
           {
-            backgroundColor: colors.surfaceMuted,
+            backgroundColor: colors.surface,
             borderColor: colors.border,
           },
           pressed && styles.pressed,
@@ -211,12 +211,12 @@ export function DatePickerField({ dateKey, onChange }: DatePickerFieldProps) {
 const styles = StyleSheet.create({
   fieldButton: {
     alignItems: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     flexDirection: 'row',
     gap: spacing.sm,
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
+    minHeight: 50,
+    paddingHorizontal: spacing.lg,
   },
   pressed: {
     opacity: 0.72,
@@ -228,10 +228,14 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   modal: {
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     gap: spacing.lg,
     maxWidth: 420,
-    padding: spacing.lg,
+    padding: spacing.xl,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.14,
+    shadowRadius: 24,
+    elevation: 8,
     width: '100%',
   },
   modalHeader: {
@@ -241,7 +245,7 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     alignItems: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     height: 44,
     justifyContent: 'center',
     width: 44,
@@ -265,7 +269,7 @@ const styles = StyleSheet.create({
   },
   dayButton: {
     alignItems: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     height: 42,
     justifyContent: 'center',
     width: `${100 / 7}%`,

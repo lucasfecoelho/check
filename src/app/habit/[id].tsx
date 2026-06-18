@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Trash2 } from 'lucide-react-native';
+import { Flame, Gauge, Trash2, Trophy } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
@@ -24,6 +24,7 @@ export default function HabitDetailsScreen() {
   const [habit, setHabit] = useState<HabitWithCategory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const streakUnit = habit?.frequency === 'daily' ? 'dias' : 'vezes';
 
   useEffect(() => {
     async function loadHabit() {
@@ -97,6 +98,47 @@ export default function HabitDetailsScreen() {
       </View>
 
       {habit ? (
+        <Card style={styles.streakCard}>
+          <View style={styles.streakHeader}>
+            <View style={[styles.streakIcon, { backgroundColor: colors.warningSoft }]}>
+              <Flame color={colors.warning} size={20} strokeWidth={2.4} />
+            </View>
+            <View style={styles.streakCopy}>
+              <AppText variant="bodyStrong">Sequência do hábito</AppText>
+              <AppText color={colors.textMuted} variant="caption">
+                Fins de semana não quebram hábitos diários.
+              </AppText>
+            </View>
+          </View>
+
+          <View style={styles.streakStats}>
+            <View style={styles.streakStat}>
+              <AppText variant="title">{habit.current_streak}</AppText>
+              <AppText color={colors.textMuted} variant="caption">
+                {streakUnit} seguidos
+              </AppText>
+            </View>
+            <View style={[styles.streakDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.streakStat}>
+              <Trophy color={colors.primary} size={18} strokeWidth={2.4} />
+              <AppText color={colors.primary} variant="caption">
+                Melhor: {habit.best_streak} {streakUnit}
+              </AppText>
+            </View>
+          </View>
+
+          {habit.consistency_label ? (
+            <View style={[styles.consistencyRow, { backgroundColor: colors.surfaceMuted }]}>
+              <Gauge color={colors.textMuted} size={15} strokeWidth={2.4} />
+              <AppText color={colors.textMuted} variant="caption">
+                {habit.consistency_label}
+              </AppText>
+            </View>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {habit ? (
         <HabitForm
           categories={categories}
           initialValues={habit}
@@ -133,6 +175,47 @@ export default function HabitDetailsScreen() {
 const styles = StyleSheet.create({
   header: {
     gap: spacing.xs,
+  },
+  streakCard: {
+    gap: spacing.lg,
+  },
+  streakHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  streakIcon: {
+    alignItems: 'center',
+    borderRadius: radius.md,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  streakCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  streakStats: {
+    alignItems: 'stretch',
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  streakStat: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 0,
+  },
+  streakDivider: {
+    width: 1,
+  },
+  consistencyRow: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: radius.sm,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    minHeight: 30,
+    paddingHorizontal: spacing.sm,
   },
   dangerCard: {
     gap: spacing.lg,

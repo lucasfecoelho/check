@@ -48,7 +48,7 @@ export function PrimaryButton({ disabled, icon: Icon, label, style, ...props }: 
         }}
         style={({ pressed }) => [
           styles.button,
-          { backgroundColor: colors.primary },
+          { backgroundColor: disabled ? colors.textSoft : colors.primary, shadowColor: colors.primaryDark },
           pressed && styles.pressed,
           disabled && styles.disabled,
         ]}
@@ -67,10 +67,14 @@ export function PrimaryButton({ disabled, icon: Icon, label, style, ...props }: 
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    borderRadius: radius.md,
-    minHeight: 48,
+    borderRadius: radius.lg,
+    minHeight: 50,
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 2,
   },
   content: {
     alignItems: 'center',
@@ -78,9 +82,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   pressed: {
-    opacity: 0.86,
+    opacity: 0.9,
   },
   disabled: {
-    opacity: 0.48,
+    opacity: 0.5,
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });

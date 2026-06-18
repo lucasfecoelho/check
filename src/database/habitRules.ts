@@ -52,7 +52,10 @@ export function serializeHabitWeekdays(daysOfWeek?: number[] | null) {
   return normalizedDays.length > 0 ? JSON.stringify(normalizedDays) : null;
 }
 
-export function shouldHabitAppearOnDate(habit: Habit, dateKey: string) {
+export function shouldHabitAppearOnDate(
+  habit: Pick<Habit, 'day_of_month' | 'days_of_week' | 'frequency'>,
+  dateKey: string
+) {
   const date = parseDateKey(dateKey);
 
   if (habit.frequency === 'daily') {

@@ -83,7 +83,7 @@ export function TaskForm({
             style={[
               styles.input,
               {
-                backgroundColor: colors.surfaceMuted,
+                backgroundColor: colors.surface,
                 borderColor: colors.border,
                 color: colors.text,
               },
@@ -175,11 +175,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   input: {
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     fontSize: typography.sizes.body,
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
+    minHeight: 50,
+    paddingHorizontal: spacing.lg,
   },
   categories: {
     flexDirection: 'row',
@@ -188,22 +188,22 @@ const styles = StyleSheet.create({
   },
   categoryChip: {
     alignItems: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     flexDirection: 'row',
     gap: spacing.xs,
     maxWidth: '48%',
-    minHeight: 40,
+    minHeight: 42,
     paddingHorizontal: spacing.md,
   },
   categoryChipSelected: {
   },
   preview: {
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.md,
   },
   errorBox: {
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.md,
   },
 });

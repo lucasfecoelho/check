@@ -33,7 +33,7 @@ export function TimePickerField({ defaultTime, onChange, value }: TimePickerFiel
         style={({ pressed }) => [
           styles.fieldButton,
           {
-            backgroundColor: colors.surfaceMuted,
+            backgroundColor: colors.surface,
             borderColor: colors.border,
           },
           pressed && styles.pressed,
@@ -64,12 +64,12 @@ export function TimePickerField({ defaultTime, onChange, value }: TimePickerFiel
 const styles = StyleSheet.create({
   fieldButton: {
     alignItems: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     flexDirection: 'row',
     gap: spacing.sm,
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
+    minHeight: 50,
+    paddingHorizontal: spacing.lg,
   },
   fieldCopy: {
     flex: 1,

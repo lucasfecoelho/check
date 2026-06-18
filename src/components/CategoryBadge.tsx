@@ -16,9 +16,16 @@ export function CategoryBadge({ color, icon, label, tone = 'soft' }: CategoryBad
   const colors = useThemeColors();
 
   return (
-    <View style={[styles.container, tone === 'soft' && { backgroundColor: `${color}14` }]}>
+    <View
+      style={[
+        styles.container,
+        tone === 'soft' && {
+          backgroundColor: `${color}12`,
+          borderColor: `${color}24`,
+        },
+      ]}>
       <CategoryIcon color={color} name={icon} size={14} />
-      <AppText color={tone === 'soft' ? colors.text : colors.textMuted} numberOfLines={1} variant="caption">
+      <AppText color={tone === 'soft' ? colors.textMuted : colors.textSoft} numberOfLines={1} variant="caption">
         {label}
       </AppText>
     </View>
@@ -29,7 +36,9 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     alignSelf: 'flex-start',
+    borderColor: 'transparent',
     borderRadius: radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: spacing.xs,
     minHeight: 28,

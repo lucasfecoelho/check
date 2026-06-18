@@ -11,9 +11,15 @@ export default function RootLayout() {
     console.log('[Check] RootLayout mounted');
     console.log('[Check] notification handler deferred until notifications are used');
     console.log('[Check] initializing database from RootLayout');
-    initDatabase().catch((error) => {
-      console.error('[Check] Failed to initialize database from RootLayout', error);
-    });
+    initDatabase()
+      .then(async () => {
+        const notificationService = await import('@/services/notifications');
+
+        await notificationService.rescheduleSleepReminderNotification();
+      })
+      .catch((error) => {
+        console.error('[Check] Failed to initialize database from RootLayout', error);
+      });
   }, []);
 
   return (

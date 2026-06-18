@@ -48,11 +48,15 @@ export function EmptyState({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    borderRadius: radius.sm,
+    borderRadius: radius.lg,
     borderWidth: 1,
     gap: spacing.lg,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.xxxl,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 18,
+    elevation: 1,
   },
   iconWrap: {
     alignItems: 'center',

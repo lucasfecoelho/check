@@ -1,4 +1,4 @@
-import { addMonths, endOfMonth, isAfter, set, subMinutes } from 'date-fns';
+import { addDays, addMinutes, isAfter, subMinutes } from 'date-fns';
 // Import only local-notification modules. The expo-notifications root import loads
 // push-token auto-registration side effects, which are not used by Check.
 import cancelAllScheduledNotificationsAsync from 'expo-notifications/build/cancelAllScheduledNotificationsAsync';
@@ -25,23 +25,42 @@ import {
   getTodayDateKey,
   parseTaskDateTime,
 } from '@/database/date';
-import { LAST_DAY_OF_MONTH, parseHabitWeekdays } from '@/database/habitRules';
+import { shouldHabitAppearOnDate } from '@/database/habitRules';
 import {
   CLEAR_ALL_NOTIFICATION_IDS_SQL,
+  SELECT_SLEEP_ENTRIES_BETWEEN_SQL,
   SELECT_HABITS_WITH_CATEGORY_SQL,
+  SELECT_HABIT_COMPLETIONS_FOR_DATE_SQL,
   SELECT_SETTING_VALUE_SQL,
+  SELECT_TASKS_WITH_CATEGORY_FIELDS_SQL,
   SELECT_UPCOMING_TASKS_SQL,
   UPDATE_HABIT_NOTIFICATION_ID_SQL,
   UPDATE_SETTING_SQL,
   UPDATE_TASK_NOTIFICATION_IDS_SQL,
 } from '@/database/schema';
-import type { HabitWithCategory, TaskWithCategory } from '@/database/types';
+import type { HabitCompletion, HabitWithCategory, SleepEntry, TaskWithCategory } from '@/database/types';
+
+import {
+  buildHabitNotificationContent,
+  buildTaskNotificationContent,
+  buildWaterReminderNotificationContent,
+  type NotificationContent,
+} from './notificationMessages';
 
 const CHANNEL_ID = 'check-reminders';
 const NOTIFICATIONS_SETTING_KEY = 'notifications_enabled';
 const TASK_REMINDER_LEAD_MINUTES_SETTING_KEY = 'task_reminder_lead_minutes';
+const SLEEP_NOTIFICATION_IDS_SETTING_KEY = 'sleep_notification_ids';
 const DEFAULT_TASK_REMINDER_LEAD_MINUTES = 30;
 const VALID_TASK_REMINDER_LEAD_MINUTES = [10, 30, 60] as const;
+const HABIT_NOTIFICATION_OCCURRENCE_COUNT = 14;
+const WATER_REMINDER_LOOKAHEAD_DAYS = 7;
+const WATER_REMINDER_MAX_NOTIFICATION_COUNT = 48;
+const DEFAULT_WATER_REMINDER_START_TIME = '08:00';
+const DEFAULT_WATER_REMINDER_END_TIME = '22:00';
+const DEFAULT_WATER_REMINDER_INTERVAL_MINUTES = 60;
+const SLEEP_REMINDER_TIME = '09:00';
+const SLEEP_REMINDER_LOOKAHEAD_DAYS = 14;
 let isNotificationHandlerConfigured = false;
 
 type NotificationIds = {
@@ -51,6 +70,11 @@ type NotificationIds = {
 
 type SettingValueRow = {
   value: string;
+};
+
+type DayProgress = {
+  completedCount: number;
+  totalCount: number;
 };
 
 export function configureNotificationHandler() {
@@ -141,6 +165,60 @@ function getTaskReminderLeadLabel(minutes: number) {
   return minutes === 60 ? '1 hora' : `${minutes} minutos`;
 }
 
+async function getDayProgress(dateKey: string): Promise<DayProgress> {
+  const db = await getDatabase();
+  const [tasks, habits, habitCompletions] = await Promise.all([
+    db.getAllAsync<TaskWithCategory>(
+      `
+      ${SELECT_TASKS_WITH_CATEGORY_FIELDS_SQL}
+      WHERE tasks.date = ?;
+      `,
+      [dateKey]
+    ),
+    db.getAllAsync<HabitWithCategory>(SELECT_HABITS_WITH_CATEGORY_SQL),
+    db.getAllAsync<HabitCompletion>(SELECT_HABIT_COMPLETIONS_FOR_DATE_SQL, [dateKey]),
+  ]);
+  const completedHabitIds = new Set(habitCompletions.map((completion) => completion.habit_id));
+  const expectedHabits = habits.filter((habit) => shouldHabitAppearOnDate(habit, dateKey));
+  const completedTasks = tasks.filter((task) => task.status === 'completed');
+  const completedHabits = expectedHabits.filter((habit) => completedHabitIds.has(habit.id));
+
+  return {
+    completedCount: completedTasks.length + completedHabits.length,
+    totalCount: tasks.length + expectedHabits.length,
+  };
+}
+
+async function getHabitCompletedDateKeysFromToday(habitId: string) {
+  const db = await getDatabase();
+  const today = getTodayDateKey();
+  const completions = await db.getAllAsync<HabitCompletion>(
+    `
+    SELECT id, habit_id, date, completed_at
+    FROM habit_completions
+    WHERE habit_id = ? AND date >= ?;
+    `,
+    [habitId, today]
+  );
+
+  return new Set(completions.map((completion) => completion.date));
+}
+
+async function getHabitProgressValueOnDate(habitId: string, dateKey: string) {
+  const db = await getDatabase();
+  const progress = await db.getFirstAsync<{ value: number }>(
+    `
+    SELECT value
+    FROM habit_progress
+    WHERE habit_id = ? AND date = ?
+    LIMIT 1;
+    `,
+    [habitId, dateKey]
+  );
+
+  return progress?.value ?? 0;
+}
+
 async function canScheduleNotifications() {
   if (!(await areNotificationsEnabled())) {
     return false;
@@ -155,35 +233,51 @@ function getScheduledDate(date: string, time: string) {
   return isAfter(parsed, new Date()) ? parsed : null;
 }
 
-function parseTime(time: string) {
-  const [hour, minute] = time.split(':').map(Number);
-
-  return { hour, minute };
-}
-
 function stringifyNotificationIds(ids: string[]) {
   return ids.length > 0 ? JSON.stringify(ids) : null;
 }
 
-function getNextLastDayOfMonthNotificationDate(hour: number, minute: number) {
-  const now = new Date();
-  const candidate = set(endOfMonth(now), {
-    hours: hour,
-    milliseconds: 0,
-    minutes: minute,
-    seconds: 0,
-  });
+async function getSettingValue(key: string) {
+  const db = await getDatabase();
+  const setting = await db.getFirstAsync<SettingValueRow>(SELECT_SETTING_VALUE_SQL, [key]);
 
-  if (isAfter(candidate, now)) {
-    return candidate;
+  return setting?.value ?? null;
+}
+
+async function setSettingValue(key: string, value: string) {
+  const db = await getDatabase();
+
+  await db.runAsync(UPDATE_SETTING_SQL, [key, value]);
+}
+
+async function getHabitNotificationDates(
+  habit: Pick<
+    HabitWithCategory,
+    'day_of_month' | 'days_of_week' | 'frequency' | 'id' | 'time'
+  >
+) {
+  const dates: Date[] = [];
+  const now = new Date();
+  const completedDateKeys = await getHabitCompletedDateKeysFromToday(habit.id);
+  let cursor = now;
+  let inspectedDays = 0;
+
+  while (dates.length < HABIT_NOTIFICATION_OCCURRENCE_COUNT && inspectedDays < 370) {
+    const dateKey = getTodayDateKey(cursor);
+
+    if (shouldHabitAppearOnDate(habit, dateKey) && !completedDateKeys.has(dateKey)) {
+      const candidate = parseTaskDateTime(dateKey, habit.time);
+
+      if (isAfter(candidate, now)) {
+        dates.push(candidate);
+      }
+    }
+
+    cursor = addDays(cursor, 1);
+    inspectedDays += 1;
   }
 
-  return set(endOfMonth(addMonths(now, 1)), {
-    hours: hour,
-    milliseconds: 0,
-    minutes: minute,
-    seconds: 0,
-  });
+  return dates;
 }
 
 function parseNotificationIdList(notificationId?: string | null) {
@@ -200,14 +294,105 @@ function parseNotificationIdList(notificationId?: string | null) {
   }
 }
 
-async function scheduleAtDate(title: string, body: string, date: Date, data: Record<string, unknown>) {
+function isWaterReminderEnabled(
+  habit: Pick<
+    HabitWithCategory,
+    | 'target_value'
+    | 'tracking_type'
+    | 'water_reminder_enabled'
+  >
+) {
+  return (
+    habit.tracking_type === 'quantitative' &&
+    Boolean(habit.target_value) &&
+    habit.water_reminder_enabled === 1
+  );
+}
+
+async function getWaterReminderDates(
+  habit: Pick<
+    HabitWithCategory,
+    | 'day_of_month'
+    | 'days_of_week'
+    | 'frequency'
+    | 'id'
+    | 'target_value'
+    | 'tracking_type'
+    | 'water_reminder_enabled'
+    | 'water_reminder_end_time'
+    | 'water_reminder_interval_minutes'
+    | 'water_reminder_start_time'
+  >
+) {
+  if (!isWaterReminderEnabled(habit)) {
+    return [];
+  }
+
+  const dates: Date[] = [];
+  const now = new Date();
+  const todayKey = getTodayDateKey();
+  const completedDateKeys = await getHabitCompletedDateKeysFromToday(habit.id);
+  const todayProgress = await getHabitProgressValueOnDate(habit.id, todayKey);
+  const hasReachedTodayTarget =
+    typeof habit.target_value === 'number' && todayProgress >= habit.target_value;
+  const intervalMinutes =
+    habit.water_reminder_interval_minutes > 0
+      ? habit.water_reminder_interval_minutes
+      : DEFAULT_WATER_REMINDER_INTERVAL_MINUTES;
+
+  for (let dayOffset = 0; dayOffset < WATER_REMINDER_LOOKAHEAD_DAYS; dayOffset += 1) {
+    const day = addDays(now, dayOffset);
+    const dateKey = getTodayDateKey(day);
+
+    if (!shouldHabitAppearOnDate(habit, dateKey)) {
+      continue;
+    }
+
+    if (dateKey === todayKey && (completedDateKeys.has(dateKey) || hasReachedTodayTarget)) {
+      continue;
+    }
+
+    const startAt = parseTaskDateTime(
+      dateKey,
+      habit.water_reminder_start_time || DEFAULT_WATER_REMINDER_START_TIME
+    );
+    const endAt = parseTaskDateTime(
+      dateKey,
+      habit.water_reminder_end_time || DEFAULT_WATER_REMINDER_END_TIME
+    );
+    let cursor = startAt;
+
+    while (
+      cursor.getTime() <= endAt.getTime() &&
+      dates.length < WATER_REMINDER_MAX_NOTIFICATION_COUNT
+    ) {
+      if (isAfter(cursor, now)) {
+        dates.push(cursor);
+      }
+
+      cursor = addMinutes(cursor, intervalMinutes);
+    }
+
+    if (dates.length >= WATER_REMINDER_MAX_NOTIFICATION_COUNT) {
+      break;
+    }
+  }
+
+  return dates;
+}
+
+async function scheduleAtDate(
+  content: NotificationContent,
+  date: Date,
+  data: Record<string, unknown>
+) {
   return scheduleNotificationAsync({
     content: {
-      body,
+      body: content.body,
       data,
       priority: AndroidNotificationPriority.HIGH,
       sound: 'default',
-      title,
+      title: content.title,
     },
     trigger: {
       channelId: CHANNEL_ID,
@@ -217,7 +402,93 @@ async function scheduleAtDate(title: string, body: string, date: Date, data: Rec
   });
 }
 
-export async function scheduleTaskNotifications(task: Pick<TaskWithCategory, 'date' | 'id' | 'time' | 'title'>) {
+async function cancelNotificationIds(ids: string[]) {
+  await Promise.all(
+    ids.map((id) =>
+      cancelScheduledNotificationAsync(id).catch((error) => {
+        console.warn('Failed to cancel scheduled notification', error);
+      })
+    )
+  );
+}
+
+async function getSleepReminderDates() {
+  const now = new Date();
+  const startKey = getTodayDateKey(now);
+  const endKey = getTodayDateKey(addDays(now, SLEEP_REMINDER_LOOKAHEAD_DAYS));
+  const db = await getDatabase();
+  const entries = await db.getAllAsync<SleepEntry>(SELECT_SLEEP_ENTRIES_BETWEEN_SQL, [
+    startKey,
+    endKey,
+  ]);
+  const recordedDates = new Set(entries.map((entry) => entry.date));
+  const dates: Date[] = [];
+
+  for (let dayOffset = 0; dayOffset < SLEEP_REMINDER_LOOKAHEAD_DAYS; dayOffset += 1) {
+    const day = addDays(now, dayOffset);
+    const dateKey = getTodayDateKey(day);
+    const reminderAt = parseTaskDateTime(dateKey, SLEEP_REMINDER_TIME);
+
+    if (recordedDates.has(dateKey)) {
+      continue;
+    }
+
+    if (isAfter(reminderAt, now)) {
+      dates.push(reminderAt);
+    }
+  }
+
+  return dates;
+}
+
+export async function cancelSleepReminderNotification() {
+  const notificationIds = parseNotificationIdList(
+    await getSettingValue(SLEEP_NOTIFICATION_IDS_SETTING_KEY)
+  );
+
+  await cancelNotificationIds(notificationIds);
+  await setSettingValue(SLEEP_NOTIFICATION_IDS_SETTING_KEY, '');
+}
+
+export async function rescheduleSleepReminderNotification() {
+  configureNotificationHandler();
+  await cancelSleepReminderNotification();
+
+  if (!(await canScheduleNotifications())) {
+    return null;
+  }
+
+  const dates = await getSleepReminderDates();
+  const ids: string[] = [];
+
+  for (const date of dates) {
+    ids.push(
+      await scheduleAtDate(
+        {
+          body: 'Registre seu sono e acompanhe sua rotina.',
+          title: 'Quantas horas voce dormiu hoje?',
+        },
+        date,
+        {
+          date: getTodayDateKey(date),
+          route: '/',
+          screen: 'sleep',
+          type: 'sleep-reminder',
+        }
+      )
+    );
+  }
+
+  const serializedIds = stringifyNotificationIds(ids);
+
+  await setSettingValue(SLEEP_NOTIFICATION_IDS_SETTING_KEY, serializedIds ?? '');
+
+  return serializedIds;
+}
+
+export async function scheduleTaskNotifications(
+  task: Pick<TaskWithCategory, 'date' | 'id' | 'status' | 'time' | 'title'>
+) {
   configureNotificationHandler();
 
   const ids: NotificationIds = {
@@ -230,6 +501,10 @@ export async function scheduleTaskNotifications(task: Pick<TaskWithCategory, 'da
   }
 
   try {
+    if (task.status === 'completed') {
+      return ids;
+    }
+
     const dueAt = getScheduledDate(task.date, task.time);
 
     if (!dueAt) {
@@ -238,22 +513,44 @@ export async function scheduleTaskNotifications(task: Pick<TaskWithCategory, 'da
 
     const reminderLeadMinutes = await getTaskReminderLeadMinutes();
     const reminderBeforeDue = subMinutes(dueAt, reminderLeadMinutes);
+    const dayProgress = await getDayProgress(task.date);
 
     if (isAfter(reminderBeforeDue, new Date())) {
-      ids.notification30MinId = await scheduleAtDate(
-        `⚠️ ${task.title}`,
-        `Prazo em ${getTaskReminderLeadLabel(reminderLeadMinutes)}`,
-        reminderBeforeDue,
-        { reminderLeadMinutes, taskId: task.id, type: 'task-before-due' }
+      const reminderContent = buildTaskNotificationContent(
+        {
+          dayProgress,
+          reminderLeadLabel: getTaskReminderLeadLabel(reminderLeadMinutes),
+          time: task.time,
+          title: task.title,
+        },
+        'before-due'
       );
+
+      if (reminderContent) {
+        ids.notification30MinId = await scheduleAtDate(
+          reminderContent,
+          reminderBeforeDue,
+          { reminderLeadMinutes, taskId: task.id, type: 'task-before-due' }
+        );
+      }
     }
 
-    ids.notificationDueId = await scheduleAtDate(
-      `⚠️ ${task.title}`,
-      `Prazo ${task.time}`,
-      dueAt,
-      { taskId: task.id, type: 'task-due' }
+    const dueContent = buildTaskNotificationContent(
+      {
+        dayProgress,
+        time: task.time,
+        title: task.title,
+      },
+      'due'
     );
+
+    if (dueContent) {
+      ids.notificationDueId = await scheduleAtDate(
+        dueContent,
+        dueAt,
+        { taskId: task.id, type: 'task-due' }
+      );
+    }
 
     return ids;
   } catch (error) {
@@ -269,19 +566,26 @@ export async function cancelTaskNotifications(
     (id): id is string => Boolean(id)
   );
 
-  await Promise.all(
-    ids.map((id) =>
-      cancelScheduledNotificationAsync(id).catch((error) => {
-        console.warn('Failed to cancel task notification', error);
-      })
-    )
-  );
+  await cancelNotificationIds(ids);
 }
 
 export async function scheduleHabitNotification(
   habit: Pick<
     HabitWithCategory,
-    'day_of_month' | 'days_of_week' | 'frequency' | 'id' | 'time' | 'title'
+    | 'current_streak'
+    | 'day_of_month'
+    | 'days_of_week'
+    | 'frequency'
+    | 'id'
+    | 'target_unit'
+    | 'target_value'
+    | 'time'
+    | 'title'
+    | 'tracking_type'
+    | 'water_reminder_enabled'
+    | 'water_reminder_end_time'
+    | 'water_reminder_interval_minutes'
+    | 'water_reminder_start_time'
   >
 ) {
   configureNotificationHandler();
@@ -291,73 +595,74 @@ export async function scheduleHabitNotification(
   }
 
   try {
-    const { hour, minute } = parseTime(habit.time);
-    const content = {
-      body: `Hábito de hoje · ${habit.time}`,
-      data: { habitId: habit.id, type: 'habit' },
-      priority: AndroidNotificationPriority.HIGH,
-      sound: 'default' as const,
-      title: `🔁 ${habit.title}`,
-    };
+    const notificationDates = await getHabitNotificationDates(habit);
+    const waterReminderDates = await getWaterReminderDates(habit);
+    const scheduledIds: string[] = [];
 
-    if (habit.frequency === 'daily') {
-      return scheduleNotificationAsync({
-        content,
-        trigger: {
-          channelId: CHANNEL_ID,
-          hour,
-          minute,
-          type: SchedulableTriggerInputTypes.DAILY,
-        },
+    for (const date of notificationDates) {
+      const dateKey = getTodayDateKey(date);
+      const dayProgress = await getDayProgress(dateKey);
+      const isTodayReminder = dateKey === getTodayDateKey();
+      const quantitativeValue = isTodayReminder
+        ? await getHabitProgressValueOnDate(habit.id, dateKey)
+        : 0;
+      const content = buildHabitNotificationContent({
+        currentStreak: isTodayReminder ? habit.current_streak : null,
+        dayProgress,
+        quantitativeProgress:
+          isTodayReminder &&
+          habit.tracking_type === 'quantitative' &&
+          habit.target_value &&
+          quantitativeValue > 0
+            ? {
+                current: String(quantitativeValue),
+                target: String(habit.target_value),
+                unit: habit.target_unit ?? undefined,
+              }
+            : null,
+        title: habit.title,
       });
-    }
 
-    if (habit.frequency === 'weekly') {
-      const scheduledIds = await Promise.all(
-        parseHabitWeekdays(habit.days_of_week).map((day) =>
-          scheduleNotificationAsync({
-            content,
-            trigger: {
-              channelId: CHANNEL_ID,
-              hour,
-              minute,
-              type: SchedulableTriggerInputTypes.WEEKLY,
-              weekday: day + 1,
-            },
+      if (content) {
+        scheduledIds.push(
+          await scheduleAtDate(content, date, {
+            date: dateKey,
+            habitId: habit.id,
+            type: 'habit',
           })
-        )
-      );
-
-      return stringifyNotificationIds(scheduledIds);
+        );
+      }
     }
 
-    if (!habit.day_of_month) {
-      return null;
-    }
-
-    if (habit.day_of_month === LAST_DAY_OF_MONTH) {
-      // Expo has no native "last day of month" recurring trigger, so schedule
-      // the next local occurrence instead of passing an invalid monthly day.
-      return scheduleNotificationAsync({
-        content,
-        trigger: {
-          channelId: CHANNEL_ID,
-          date: getNextLastDayOfMonthNotificationDate(hour, minute),
-          type: SchedulableTriggerInputTypes.DATE,
-        },
+    for (const date of waterReminderDates) {
+      const dateKey = getTodayDateKey(date);
+      const isTodayReminder = dateKey === getTodayDateKey();
+      const quantitativeValue = isTodayReminder
+        ? await getHabitProgressValueOnDate(habit.id, dateKey)
+        : 0;
+      const content = buildWaterReminderNotificationContent({
+        quantitativeProgress: isTodayReminder
+          ? {
+              current: quantitativeValue,
+              target: habit.target_value ?? 0,
+              unit: habit.target_unit ?? undefined,
+            }
+          : null,
+        title: habit.title,
       });
+
+      if (content) {
+        scheduledIds.push(
+          await scheduleAtDate(content, date, {
+            date: dateKey,
+            habitId: habit.id,
+            type: 'water-reminder',
+          })
+        );
+      }
     }
 
-    return scheduleNotificationAsync({
-      content,
-      trigger: {
-        channelId: CHANNEL_ID,
-        day: habit.day_of_month,
-        hour,
-        minute,
-        type: SchedulableTriggerInputTypes.MONTHLY,
-      },
-    });
+    return stringifyNotificationIds(scheduledIds);
   } catch (error) {
     console.warn('Failed to schedule habit notification', error);
     return null;
@@ -369,13 +674,7 @@ export async function cancelHabitNotification(
 ) {
   const ids = parseNotificationIdList(habit?.notification_id);
 
-  await Promise.all(
-    ids.map((id) =>
-      cancelScheduledNotificationAsync(id).catch((error) => {
-        console.warn('Failed to cancel habit notification', error);
-      })
-    )
-  );
+  await cancelNotificationIds(ids);
 }
 
 export async function cancelAllCheckNotifications() {
@@ -383,6 +682,7 @@ export async function cancelAllCheckNotifications() {
 
   await cancelAllScheduledNotificationsAsync();
   await db.execAsync(CLEAR_ALL_NOTIFICATION_IDS_SQL);
+  await db.runAsync(UPDATE_SETTING_SQL, [SLEEP_NOTIFICATION_IDS_SETTING_KEY, '']);
 }
 
 export async function updateNotificationsEnabled(enabled: boolean) {
@@ -436,4 +736,6 @@ export async function rescheduleAllNotifications() {
       habit.id,
     ]);
   }
+
+  await rescheduleSleepReminderNotification();
 }

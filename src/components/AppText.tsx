@@ -2,7 +2,7 @@ import { Text, TextProps, StyleSheet } from 'react-native';
 
 import { typography, useThemeColors } from '@/theme';
 
-type AppTextVariant = 'heading' | 'title' | 'body' | 'bodyStrong' | 'caption';
+type AppTextVariant = 'heading' | 'title' | 'bodyLarge' | 'body' | 'bodyStrong' | 'caption';
 
 type AppTextProps = TextProps & {
   color?: string;
@@ -43,6 +43,11 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.body,
     fontWeight: typography.weights.regular,
     lineHeight: typography.lineHeights.body,
+  },
+  bodyLarge: {
+    fontSize: typography.sizes.bodyLarge,
+    fontWeight: typography.weights.regular,
+    lineHeight: typography.lineHeights.bodyLarge,
   },
   bodyStrong: {
     fontSize: typography.sizes.body,

@@ -63,6 +63,8 @@ npx expo start --tunnel
 - Testar notificação
 - Alterar configurações
 
+Para validar o Caderno antes de um release, use também `docs/qa-caderno-release.md`.
+
 ## Futuro
 
 - Gerar APK com EAS Build
