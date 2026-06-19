@@ -70,6 +70,10 @@ export const defaultSettings: Setting[] = [
     value: '',
   },
   {
+    key: 'sleep_tracking_enabled',
+    value: 'true',
+  },
+  {
     key: 'task_reminder_lead_minutes',
     value: '30',
   },

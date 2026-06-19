@@ -19,3 +19,4 @@ export { TaskCard } from './TaskCard';
 export { TaskForm } from './TaskForm';
 export { TimePickerField } from './TimePickerField';
 export { TimePickerModal } from './TimePickerModal';
+export { WorkoutCheckInModal } from './WorkoutCheckInModal';

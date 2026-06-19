@@ -68,7 +68,7 @@ export function SleepCard({ entry, onSave }: SleepCardProps) {
           <AppText color={colors.textMuted} variant="caption">
             {hasEntry
               ? `Registrado: ${formatHours(entry?.hours ?? 0)}h`
-              : 'Informe quantas horas voce dormiu.'}
+              : 'Informe quantas horas você dormiu.'}
           </AppText>
         </View>
       </View>

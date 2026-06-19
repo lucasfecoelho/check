@@ -9,22 +9,14 @@ let initDatabasePromise: Promise<void> | null = null;
 export async function initDatabase() {
   if (!initDatabasePromise) {
     initDatabasePromise = (async () => {
-      console.log('[Check][database] init start');
       const db = await getDatabase();
 
-      console.log('[Check][database] running migrations');
       await migrateDatabase(db);
-      console.log('[Check][database] applying schema');
       await db.execAsync(SCHEMA_SQL);
-      console.log('[Check][database] seeding default categories');
       await seedDefaultCategories(db);
-      console.log('[Check][database] seeding default settings');
       await seedDefaultSettings(db);
-      console.log('[Check][database] cleaning old tasks');
       await cleanupOldTasks();
-      console.log('[Check][database] cleaning old habit completions');
       await cleanupOldHabitCompletions();
-      console.log('[Check][database] init done');
     })();
 
     initDatabasePromise.catch((error) => {
@@ -52,11 +44,17 @@ export {
   createHabit,
   deleteHabit,
   deleteHabitCompletionForToday,
+  formatWorkoutCheckInSummary,
   getHabitById,
   getHabits,
   getTodayHabits,
+  getWorkoutCheckInForToday,
+  getWorkoutCheckInsBetween,
   isHabitCompletedForDate,
+  isWorkoutHabit,
+  saveWorkoutCheckInForToday,
   updateHabit,
+  workoutTypeLabels,
 } from './habits';
 export {
   completeTask,
@@ -89,6 +87,7 @@ export {
   type RoutineSleepSummary,
   type RoutineStatistics,
   type RoutineWeekHabitHighlight,
+  type RoutineWorkoutSummary,
 } from './statistics';
 export {
   archiveNotebookEntry,
@@ -122,6 +121,7 @@ export type {
   NotebookEntryType,
   NotebookItem,
   Setting,
+  SaveWorkoutCheckInInput,
   SaveSleepEntryInput,
   SleepEntry,
   SyncNotebookItemInput,
@@ -133,4 +133,6 @@ export type {
   UpdateNotebookItemInput,
   UpdateHabitInput,
   UpdateTaskInput,
+  WorkoutCheckIn,
+  WorkoutType,
 } from './types';

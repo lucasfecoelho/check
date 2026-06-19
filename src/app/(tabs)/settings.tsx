@@ -29,6 +29,7 @@ async function getNotificationService() {
 export default function ProfileScreen() {
   const { colors, preference: themePreference, setPreference: setThemePreference } = useAppTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [sleepTrackingEnabled, setSleepTrackingEnabled] = useState(true);
   const [defaultTaskTime, setDefaultTaskTime] = useState(DEFAULT_TASK_TIME);
   const [draftDefaultTime, setDraftDefaultTime] = useState(DEFAULT_TASK_TIME);
   const [profileName, setProfileName] = useState('');
@@ -39,6 +40,7 @@ export default function ProfileScreen() {
   const [timeError, setTimeError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpdatingSleepTracking, setIsUpdatingSleepTracking] = useState(false);
   const [isPickingAvatar, setIsPickingAvatar] = useState(false);
   const [isSavingTime, setIsSavingTime] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -54,6 +56,9 @@ export default function ProfileScreen() {
       (setting) => setting.key === 'task_reminder_lead_minutes'
     )?.value;
     const reminderLead = Number(reminderLeadSetting);
+    const sleepTrackingSetting = settings.find(
+      (setting) => setting.key === 'sleep_tracking_enabled'
+    )?.value;
 
     const notificationsSetting = settings.find((setting) => setting.key === 'notifications_enabled')?.value;
     const notificationService = await getNotificationService();
@@ -72,6 +77,7 @@ export default function ProfileScreen() {
         : 30
     );
     setNotificationsEnabled(enabled);
+    setSleepTrackingEnabled(sleepTrackingSetting !== 'false');
   }, []);
 
   useFocusEffect(
@@ -169,6 +175,26 @@ export default function ProfileScreen() {
     setNotificationsEnabled(enabled);
     setPermissionDenied(value && !enabled);
     setIsUpdating(false);
+  }
+
+  async function handleToggleSleepTracking(value: boolean) {
+    setIsUpdatingSleepTracking(true);
+
+    try {
+      const notificationService = await getNotificationService();
+
+      if (notificationService) {
+        await notificationService.updateSleepTrackingEnabled(value);
+      } else {
+        await updateSetting('sleep_tracking_enabled', value ? 'true' : 'false');
+      }
+
+      setSleepTrackingEnabled(value);
+    } catch (error) {
+      console.warn('[Check][settings] Failed to update sleep tracking', error);
+    } finally {
+      setIsUpdatingSleepTracking(false);
+    }
   }
 
   async function handleSaveDefaultTime() {
@@ -318,6 +344,27 @@ export default function ProfileScreen() {
           </View>
         </Card>
 
+        <Card>
+          <View style={styles.row}>
+            <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
+              <Moon color={colors.primary} size={22} strokeWidth={2.2} />
+            </View>
+            <View style={styles.copy}>
+              <AppText variant="bodyStrong">Acompanhar sono</AppText>
+              <AppText color={colors.textMuted}>
+                Inclui o sono no progresso do dia e envia lembrete às 09:00.
+              </AppText>
+            </View>
+            <Switch
+              disabled={isUpdatingSleepTracking}
+              onValueChange={handleToggleSleepTracking}
+              thumbColor={sleepTrackingEnabled ? colors.primary : colors.textSoft}
+              trackColor={{ false: colors.border, true: colors.primarySoft }}
+              value={sleepTrackingEnabled}
+            />
+          </View>
+        </Card>
+
         <Card style={styles.reminderCard}>
           <View style={styles.row}>
             <View
@@ -451,7 +498,7 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <SectionHeader title="Sobre o app" />
         <Card>
-          <AppText variant="bodyStrong">Versão 1.2.5</AppText>
+          <AppText variant="bodyStrong">Versão 1.3.0</AppText>
         </Card>
       </View>
     </AppScreen>

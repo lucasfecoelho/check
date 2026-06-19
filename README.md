@@ -1,15 +1,24 @@
 # Check
 
-Check é um app mobile pessoal para organizar tarefas com prazo e hábitos recorrentes, com foco em simplicidade, notificações locais e uso diário no Android.
+Check é um app mobile pessoal para organizar rotina, tarefas e hábitos com dados locais, notificações no aparelho e foco em uso diário no Android.
+
+Versão atual: 1.3.0  
+Descrição da versão: Rotina diária, streaks, calendário, estatísticas, hábitos quantitativos, água e sono.
 
 ## Funcionalidades
 
 - Tarefas com prazo
 - Hábitos diários, semanais e mensais
-- Tela inicial com itens do dia
-- Notificações locais
+- Progresso diário
+- Streaks de hábitos
+- Hábitos quantitativos
+- Lembrete de água
+- Registro de sono
+- Calendário mensal
+- Estatísticas
 - Categorias
-- Configurações de aparência
+- Notificações locais
+- Tema claro/escuro
 - SQLite local
 - Sem login e sem nuvem
 
@@ -54,13 +63,14 @@ npx expo start --tunnel
 
 ## Checklist de Testes
 
-- Criar tarefa
-- Editar tarefa
-- Concluir tarefa
-- Criar hábito diário
-- Criar hábito semanal
-- Criar hábito mensal
-- Testar notificação
+- Criar, editar e concluir tarefa
+- Criar hábito diário, semanal e mensal
+- Registrar progresso em hábito quantitativo
+- Validar lembrete de água
+- Registrar sono
+- Conferir calendário e estatísticas
+- Testar notificações locais
+- Alternar tema claro/escuro
 - Alterar configurações
 
 Para validar o Caderno antes de um release, use também `docs/qa-caderno-release.md`.

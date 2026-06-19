@@ -5,6 +5,8 @@ import {
   CREATE_NOTEBOOK_ITEMS_TABLE_SQL,
   CREATE_SLEEP_ENTRIES_TABLE_SQL,
   CREATE_SLEEP_INDEXES_SQL,
+  CREATE_WORKOUT_CHECKINS_INDEXES_SQL,
+  CREATE_WORKOUT_CHECKINS_TABLE_SQL,
 } from './schema';
 
 type TableInfoRow = {
@@ -73,6 +75,7 @@ export async function migrateDatabase(db: SQLiteDatabase) {
   await migrateHabitWaterReminderFields(db);
   await migrateHabitProgressTable(db);
   await migrateSleepEntries(db);
+  await migrateWorkoutCheckIns(db);
   await migrateNotebookEntries(db);
 }
 
@@ -98,7 +101,6 @@ async function migrateHabitStreakColumns(db: SQLiteDatabase) {
   }
 
   if (statements.length > 0) {
-    console.log('[Check][database] adding habit streak columns');
     await db.execAsync(statements.join('\n'));
   }
 }
@@ -131,7 +133,6 @@ async function migrateHabitQuantitativeFields(db: SQLiteDatabase) {
   }
 
   if (statements.length > 0) {
-    console.log('[Check][database] adding quantitative habit fields');
     await db.execAsync(statements.join('\n'));
   }
 }
@@ -166,7 +167,6 @@ async function migrateHabitWaterReminderFields(db: SQLiteDatabase) {
   }
 
   if (statements.length > 0) {
-    console.log('[Check][database] adding water reminder fields');
     await db.execAsync(statements.join('\n'));
   }
 }
@@ -196,6 +196,13 @@ async function migrateSleepEntries(db: SQLiteDatabase) {
   `);
 }
 
+async function migrateWorkoutCheckIns(db: SQLiteDatabase) {
+  await db.execAsync(`
+    ${CREATE_WORKOUT_CHECKINS_TABLE_SQL}
+    ${CREATE_WORKOUT_CHECKINS_INDEXES_SQL}
+  `);
+}
+
 async function migrateNotebookEntries(db: SQLiteDatabase) {
   if (!(await tableExists(db, 'notebook_entries'))) {
     return;
@@ -206,8 +213,6 @@ async function migrateNotebookEntries(db: SQLiteDatabase) {
   if (!notebookEntriesNeedMigration(entryColumns)) {
     return;
   }
-
-  console.log('[Check][database] migrating notebook entries schema');
 
   const hasNotebookItems = await tableExists(db, 'notebook_items');
   const contentExpression = buildNotebookEntryContentExpression(entryColumns);

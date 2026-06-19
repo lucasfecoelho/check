@@ -5,12 +5,16 @@ import {
   INSERT_HABIT_SQL,
   SELECT_HABIT_PROGRESS_FOR_DATE_SQL,
   SELECT_HABIT_PROGRESS_FOR_HABIT_DATE_SQL,
+  SELECT_WORKOUT_CHECKIN_FOR_HABIT_DATE_SQL,
+  SELECT_WORKOUT_CHECKINS_BETWEEN_SQL,
+  SELECT_WORKOUT_CHECKINS_FOR_DATE_SQL,
   SET_HABIT_PROGRESS_SQL,
   SELECT_HABIT_BY_ID_SQL,
   SELECT_HABIT_COMPLETION_SQL,
   SELECT_HABIT_COMPLETIONS_FOR_DATE_SQL,
   SELECT_HABITS_WITH_CATEGORY_SQL,
   UPSERT_HABIT_PROGRESS_SQL,
+  UPSERT_WORKOUT_CHECKIN_SQL,
   UPDATE_HABIT_STREAK_SQL,
   UPDATE_HABIT_NOTIFICATION_ID_SQL,
   UPDATE_HABIT_SQL,
@@ -33,17 +37,108 @@ import type {
   HabitProgress,
   HabitTrackingType,
   HabitWithCategory,
+  SaveWorkoutCheckInInput,
   TodayHabit,
   UpdateHabitInput,
+  WorkoutCheckIn,
+  WorkoutType,
 } from './types';
 
 const validFrequencies: HabitFrequency[] = ['daily', 'weekly', 'monthly'];
 const validTrackingTypes: HabitTrackingType[] = ['checkbox', 'quantitative'];
+const validWorkoutTypes: WorkoutType[] = [
+  'chest_triceps',
+  'back_biceps',
+  'legs',
+  'shoulders',
+  'full_body',
+  'cardio',
+  'other',
+];
 const DEFAULT_WATER_REMINDER_START_TIME = '08:00';
 const DEFAULT_WATER_REMINDER_END_TIME = '22:00';
 const WATER_REMINDER_INTERVAL_MINUTES = 60;
 
+export const workoutTypeLabels: Record<WorkoutType, string> = {
+  back_biceps: 'Costas/bíceps',
+  cardio: 'Cardio',
+  chest_triceps: 'Peito/tríceps',
+  full_body: 'Full body',
+  legs: 'Pernas',
+  other: 'Outro',
+  shoulders: 'Ombro',
+};
+
 type HabitCompletionStreakRow = Pick<HabitCompletion, 'date' | 'habit_id'>;
+
+function normalizeSearchText(value?: string | null) {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+export function isWorkoutHabit(
+  habit: Pick<HabitWithCategory, 'category_name' | 'title'>
+) {
+  const searchable = `${normalizeSearchText(habit.title)} ${normalizeSearchText(
+    habit.category_name
+  )}`;
+
+  return [
+    'academia',
+    'treino',
+    'musculacao',
+    'workout',
+    'gym',
+  ].some((term) => searchable.includes(term));
+}
+
+export function formatWorkoutCheckInSummary(checkIn: WorkoutCheckIn) {
+  const parts = [
+    workoutTypeLabels[checkIn.workout_type],
+    `${checkIn.workout_minutes} min`,
+  ];
+
+  if (checkIn.did_cardio && checkIn.cardio_minutes) {
+    parts.push(`Cardio ${checkIn.cardio_minutes} min`);
+  }
+
+  return parts.join(' • ');
+}
+
+function validateWorkoutCheckInInput(input: SaveWorkoutCheckInInput) {
+  const workoutMinutes = Number(input.workout_minutes);
+  const didCardio = Boolean(input.did_cardio);
+  const parsedCardioMinutes = Number(input.cardio_minutes ?? 0);
+  const cardioMinutes = didCardio ? parsedCardioMinutes : null;
+  const note = input.note?.trim() || null;
+
+  if (!input.habit_id.trim()) {
+    throw new Error('Hábito inválido.');
+  }
+
+  if (!validWorkoutTypes.includes(input.workout_type)) {
+    throw new Error('Escolha o tipo de treino.');
+  }
+
+  if (!Number.isInteger(workoutMinutes) || workoutMinutes <= 0) {
+    throw new Error('Informe o tempo total em minutos.');
+  }
+
+  if (didCardio && (!Number.isInteger(parsedCardioMinutes) || parsedCardioMinutes <= 0)) {
+    throw new Error('Informe o tempo de cardio em minutos.');
+  }
+
+  return {
+    cardioMinutes,
+    didCardio,
+    habitId: input.habit_id.trim(),
+    note,
+    workoutMinutes,
+    workoutType: input.workout_type,
+  };
+}
 
 async function getNotificationService() {
   try {
@@ -109,11 +204,11 @@ function validateHabitInput(input: CreateHabitInput | UpdateHabitInput) {
 
   if (waterReminderEnabled) {
     if (!isTaskTimeValid(waterReminderStartTime) || !isTaskTimeValid(waterReminderEndTime)) {
-      throw new Error('Use horarios de lembrete no formato HH:mm.');
+      throw new Error('Use horários de lembrete no formato HH:mm.');
     }
 
     if (waterReminderStartTime >= waterReminderEndTime) {
-      throw new Error('O horario final precisa ser depois do inicio.');
+      throw new Error('O horário final precisa ser depois do início.');
     }
   }
 
@@ -294,16 +389,20 @@ export async function isHabitCompletedForDate(habitId: string, dateKey: string) 
 export async function getTodayHabits() {
   const db = await getDatabase();
   const today = getTodayDateKey();
-  const [habits, completions, progressRows] = await Promise.all([
+  const [habits, completions, progressRows, workoutCheckIns] = await Promise.all([
     getHabits(),
     db.getAllAsync<HabitCompletion>(SELECT_HABIT_COMPLETIONS_FOR_DATE_SQL, [today]),
     db.getAllAsync<HabitProgress>(SELECT_HABIT_PROGRESS_FOR_DATE_SQL, [today]),
+    db.getAllAsync<WorkoutCheckIn>(SELECT_WORKOUT_CHECKINS_FOR_DATE_SQL, [today]),
   ]);
   const completionsByHabitId = new Map(
     completions.map((completion) => [completion.habit_id, completion])
   );
   const progressByHabitId = new Map(
     progressRows.map((progress) => [progress.habit_id, progress])
+  );
+  const workoutCheckInsByHabitId = new Map(
+    workoutCheckIns.map((checkIn) => [checkIn.habit_id, checkIn])
   );
   const todayHabits = habits.filter((habit) => shouldHabitAppearOnDate(habit, today));
 
@@ -321,6 +420,9 @@ export async function getTodayHabits() {
         completed_at: completion?.completed_at ?? null,
         progress_value: progressValue,
         is_completed: Boolean(completion) || reachedTarget,
+        workout_checkin_summary: workoutCheckInsByHabitId.has(habit.id)
+          ? formatWorkoutCheckInSummary(workoutCheckInsByHabitId.get(habit.id)!)
+          : null,
       };
     })
     .sort((left, right) => {
@@ -477,6 +579,54 @@ export async function completeHabitForToday(habitId: string) {
   await insertHabitCompletionForToday(db, habitId);
   await refreshHabitStreakById(habitId);
   await rescheduleHabitNotification(habitId);
+}
+
+export async function getWorkoutCheckInForToday(habitId: string) {
+  const db = await getDatabase();
+
+  return db.getFirstAsync<WorkoutCheckIn>(SELECT_WORKOUT_CHECKIN_FOR_HABIT_DATE_SQL, [
+    habitId,
+    getTodayDateKey(),
+  ]);
+}
+
+export async function getWorkoutCheckInsBetween(startDate: string, endDate: string) {
+  const db = await getDatabase();
+
+  return db.getAllAsync<WorkoutCheckIn>(SELECT_WORKOUT_CHECKINS_BETWEEN_SQL, [
+    startDate,
+    endDate,
+  ]);
+}
+
+export async function saveWorkoutCheckInForToday(input: SaveWorkoutCheckInInput) {
+  const data = validateWorkoutCheckInInput(input);
+  const db = await getDatabase();
+  const habit = await getHabitById(data.habitId);
+
+  if (!habit || !isWorkoutHabit(habit)) {
+    throw new Error('Este hábito não possui check-in de academia.');
+  }
+
+  const timestamp = getTimestamp();
+  const today = getTodayDateKey();
+
+  await db.runAsync(UPSERT_WORKOUT_CHECKIN_SQL, [
+    createId('workout-checkin'),
+    data.habitId,
+    today,
+    data.workoutType,
+    data.workoutMinutes,
+    data.didCardio ? 1 : 0,
+    data.cardioMinutes,
+    data.note,
+    timestamp,
+    timestamp,
+  ]);
+
+  await insertHabitCompletionForToday(db, data.habitId);
+  await refreshHabitStreakById(data.habitId);
+  await rescheduleHabitNotification(data.habitId);
 }
 
 export async function deleteHabitCompletionForToday(habitId: string) {

@@ -55,6 +55,39 @@ CREATE INDEX IF NOT EXISTS idx_sleep_entries_date
   ON sleep_entries (date);
 `;
 
+export const CREATE_WORKOUT_CHECKINS_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS workout_checkins (
+  id TEXT PRIMARY KEY,
+  habit_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  workout_type TEXT NOT NULL CHECK (
+    workout_type IN (
+      'chest_triceps',
+      'back_biceps',
+      'legs',
+      'shoulders',
+      'full_body',
+      'cardio',
+      'other'
+    )
+  ),
+  workout_minutes INTEGER NOT NULL CHECK (workout_minutes > 0),
+  did_cardio INTEGER NOT NULL DEFAULT 0 CHECK (did_cardio IN (0, 1)),
+  cardio_minutes INTEGER CHECK (cardio_minutes IS NULL OR cardio_minutes >= 0),
+  note TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (habit_id) REFERENCES habits (id) ON DELETE CASCADE
+);
+`;
+
+export const CREATE_WORKOUT_CHECKINS_INDEXES_SQL = `
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workout_checkins_unique_habit_date
+  ON workout_checkins (habit_id, date);
+CREATE INDEX IF NOT EXISTS idx_workout_checkins_date
+  ON workout_checkins (date);
+`;
+
 export const SCHEMA_SQL = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
@@ -131,6 +164,7 @@ CREATE TABLE IF NOT EXISTS settings (
 ${CREATE_NOTEBOOK_ENTRIES_TABLE_SQL}
 ${CREATE_NOTEBOOK_ITEMS_TABLE_SQL}
 ${CREATE_SLEEP_ENTRIES_TABLE_SQL}
+${CREATE_WORKOUT_CHECKINS_TABLE_SQL}
 
 CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks (date);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks (status);
@@ -145,6 +179,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_habit_progress_unique_habit_date
   ON habit_progress (habit_id, date);
 ${CREATE_NOTEBOOK_INDEXES_SQL}
 ${CREATE_SLEEP_INDEXES_SQL}
+${CREATE_WORKOUT_CHECKINS_INDEXES_SQL}
 `;
 
 export const SELECT_CATEGORIES_SQL = `
@@ -593,6 +628,79 @@ VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(habit_id, date) DO UPDATE SET
   value = excluded.value,
   updated_at = excluded.updated_at;
+`;
+
+export const UPSERT_WORKOUT_CHECKIN_SQL = `
+INSERT INTO workout_checkins (
+  id,
+  habit_id,
+  date,
+  workout_type,
+  workout_minutes,
+  did_cardio,
+  cardio_minutes,
+  note,
+  created_at,
+  updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(habit_id, date) DO UPDATE SET
+  workout_type = excluded.workout_type,
+  workout_minutes = excluded.workout_minutes,
+  did_cardio = excluded.did_cardio,
+  cardio_minutes = excluded.cardio_minutes,
+  note = excluded.note,
+  updated_at = excluded.updated_at;
+`;
+
+export const SELECT_WORKOUT_CHECKIN_FOR_HABIT_DATE_SQL = `
+SELECT
+  id,
+  habit_id,
+  date,
+  workout_type,
+  workout_minutes,
+  did_cardio,
+  cardio_minutes,
+  note,
+  created_at,
+  updated_at
+FROM workout_checkins
+WHERE habit_id = ? AND date = ?
+LIMIT 1;
+`;
+
+export const SELECT_WORKOUT_CHECKINS_FOR_DATE_SQL = `
+SELECT
+  id,
+  habit_id,
+  date,
+  workout_type,
+  workout_minutes,
+  did_cardio,
+  cardio_minutes,
+  note,
+  created_at,
+  updated_at
+FROM workout_checkins
+WHERE date = ?;
+`;
+
+export const SELECT_WORKOUT_CHECKINS_BETWEEN_SQL = `
+SELECT
+  id,
+  habit_id,
+  date,
+  workout_type,
+  workout_minutes,
+  did_cardio,
+  cardio_minutes,
+  note,
+  created_at,
+  updated_at
+FROM workout_checkins
+WHERE date BETWEEN ? AND ?
+ORDER BY date DESC, updated_at DESC;
 `;
 
 export const SELECT_HABIT_PROGRESS_FOR_DATE_SQL = `

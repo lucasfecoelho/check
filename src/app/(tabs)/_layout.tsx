@@ -58,7 +58,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Inicio',
+          title: 'Início',
           tabBarIcon: ({ focused }) => renderTabIcon(Home, focused, colors.primary),
         }}
       />
@@ -72,21 +72,21 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="habits"
         options={{
-          title: 'Habitos',
+          title: 'Hábitos',
           tabBarIcon: ({ focused }) => renderTabIcon(Repeat2, focused, colors.habit),
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendario',
+          title: 'Calendário',
           tabBarIcon: ({ focused }) => renderTabIcon(CalendarDays, focused, colors.primary),
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
-          title: 'Estatisticas',
+          title: 'Estatísticas',
           tabBarIcon: ({ focused }) => renderTabIcon(BarChart3, focused, colors.primary),
         }}
       />

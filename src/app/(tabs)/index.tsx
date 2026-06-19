@@ -19,6 +19,7 @@ import {
   SectionHeader,
   SleepCard,
   TaskCard,
+  WorkoutCheckInModal,
 } from '@/components';
 import {
   addHabitProgressForToday,
@@ -26,6 +27,7 @@ import {
   completeTask,
   deleteTask,
   deleteHabitCompletionForToday,
+  getWorkoutCheckInForToday,
   getSettings,
   getOldPendingTasks,
   getTodaySleepEntry,
@@ -33,10 +35,14 @@ import {
   getTodayHabits,
   getTodayTasks,
   initDatabase,
+  isWorkoutHabit,
+  saveWorkoutCheckInForToday,
+  type SaveWorkoutCheckInInput,
   saveSleepEntry,
   type SleepEntry,
   type TaskWithCategory,
   type TodayHabit,
+  type WorkoutCheckIn,
 } from '@/database';
 import { radius, spacing, useThemeColors } from '@/theme';
 
@@ -79,7 +85,6 @@ function animateNextLayoutChange() {
 }
 
 export default function TodayScreen() {
-  console.log('[Check][Today] render');
   const colors = useThemeColors();
   const router = useRouter();
   const [tasks, setTasks] = useState<TaskWithCategory[]>([]);
@@ -87,12 +92,20 @@ export default function TodayScreen() {
   const [oldPendingTasks, setOldPendingTasks] = useState<TaskWithCategory[]>([]);
   const [habits, setHabits] = useState<TodayHabit[]>([]);
   const [sleepEntry, setSleepEntry] = useState<SleepEntry | null>(null);
+  const [sleepTrackingEnabled, setSleepTrackingEnabled] = useState(true);
+  const [workoutModalHabitId, setWorkoutModalHabitId] = useState<string | null>(null);
+  const [workoutCheckIn, setWorkoutCheckIn] = useState<WorkoutCheckIn | null>(null);
+  const [isWorkoutModalVisible, setIsWorkoutModalVisible] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const pendingHabits = useMemo(() => habits.filter((habit) => !habit.is_completed), [habits]);
   const completedHabits = useMemo(() => habits.filter((habit) => habit.is_completed), [habits]);
-  const totalTodayItems = tasks.length + completedTasks.length + habits.length + 1;
-  const completedTodayItems = completedTasks.length + completedHabits.length + (sleepEntry ? 1 : 0);
+  const totalTodayItems =
+    tasks.length + completedTasks.length + habits.length + (sleepTrackingEnabled ? 1 : 0);
+  const completedTodayItems =
+    completedTasks.length +
+    completedHabits.length +
+    (sleepTrackingEnabled && sleepEntry ? 1 : 0);
   const progressPercent = totalTodayItems
     ? Math.round((completedTodayItems / totalTodayItems) * 100)
     : 0;
@@ -116,13 +129,10 @@ export default function TodayScreen() {
   }, []);
 
   const loadToday = useCallback(async (animateLayout = false) => {
-    console.log('[Check][Today] load start');
     setIsLoading(true);
 
     try {
-      console.log('[Check][Today] before database init');
       await initDatabase();
-      console.log('[Check][Today] after database init');
 
       const [todayTasks, todayCompletedTasks, oldTasks, todayHabits, todaySleepEntry, settings] =
         await Promise.all([
@@ -134,10 +144,6 @@ export default function TodayScreen() {
           getSettings(),
         ]);
 
-      console.log(
-        `[Check][Today] loaded ${todayTasks.length} pending tasks, ${todayCompletedTasks.length} completed tasks, ${oldTasks.length} old pending tasks and ${todayHabits.length} habits`
-      );
-
       if (animateLayout) {
         animateNextLayoutChange();
       }
@@ -147,12 +153,14 @@ export default function TodayScreen() {
       setOldPendingTasks(oldTasks);
       setHabits(todayHabits);
       setSleepEntry(todaySleepEntry);
+      setSleepTrackingEnabled(
+        settings.find((setting) => setting.key === 'sleep_tracking_enabled')?.value !== 'false'
+      );
       setProfileName(settings.find((setting) => setting.key === 'profile_name')?.value ?? '');
     } catch (error) {
       console.error('[Check][Today] failed to load today data', error);
     } finally {
       setIsLoading(false);
-      console.log('[Check][Today] load finished');
     }
   }, []);
 
@@ -175,11 +183,25 @@ export default function TodayScreen() {
   }
 
   async function handleCompleteHabit(id: string) {
+    const habit = habits.find((item) => item.id === id);
+
+    if (habit && isWorkoutHabit(habit)) {
+      await openWorkoutCheckIn(id);
+      return;
+    }
+
     await completeHabitForToday(id);
     await loadToday(true);
   }
 
   async function handleUndoHabit(id: string) {
+    const habit = habits.find((item) => item.id === id);
+
+    if (habit && isWorkoutHabit(habit)) {
+      await openWorkoutCheckIn(id);
+      return;
+    }
+
     await deleteHabitCompletionForToday(id);
     await loadToday(true);
   }
@@ -191,6 +213,25 @@ export default function TodayScreen() {
 
   async function handleSaveSleep(hours: number) {
     await saveSleepEntry({ hours });
+    await loadToday(true);
+  }
+
+  async function openWorkoutCheckIn(id: string) {
+    const checkIn = await getWorkoutCheckInForToday(id);
+
+    setWorkoutModalHabitId(id);
+    setWorkoutCheckIn(checkIn);
+    setIsWorkoutModalVisible(true);
+  }
+
+  function closeWorkoutCheckIn() {
+    setIsWorkoutModalVisible(false);
+    setWorkoutModalHabitId(null);
+    setWorkoutCheckIn(null);
+  }
+
+  async function handleSaveWorkoutCheckIn(input: SaveWorkoutCheckInInput) {
+    await saveWorkoutCheckInForToday(input);
     await loadToday(true);
   }
 
@@ -316,14 +357,16 @@ export default function TodayScreen() {
         tasks={oldPendingTasks}
       />
 
-      <View style={styles.section}>
-        <SectionHeader
-          count={sleepEntry ? 1 : 0}
-          subtitle="Registro diario de descanso"
-          title="Sono"
-        />
-        <SleepCard entry={sleepEntry} onSave={handleSaveSleep} />
-      </View>
+      {sleepTrackingEnabled ? (
+        <View style={styles.section}>
+          <SectionHeader
+            count={sleepEntry ? 1 : 0}
+            subtitle="Registro diário de descanso"
+            title="Sono"
+          />
+          <SleepCard entry={sleepEntry} onSave={handleSaveSleep} />
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <SectionHeader count={tasks.length} subtitle="Pendentes e prazos do dia" title="Tarefas de hoje" />
@@ -344,7 +387,7 @@ export default function TodayScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader count={pendingHabits.length} subtitle="Rotinas que caem no dia" title="Hábitos de hoje" />
+        <SectionHeader count={pendingHabits.length} subtitle="Rotinas previstas para hoje" title="Hábitos de hoje" />
         <View style={styles.list}>
           {pendingHabits.map((habit) => (
             <HabitCard
@@ -377,7 +420,12 @@ export default function TodayScreen() {
             <TaskCard key={task.id} task={task} />
           ))}
           {completedHabits.map((habit) => (
-            <HabitCard habit={habit} key={habit.id} onUndo={handleUndoHabit} />
+            <HabitCard
+              habit={habit}
+              key={habit.id}
+              onPress={isWorkoutHabit(habit) ? openWorkoutCheckIn : undefined}
+              onUndo={isWorkoutHabit(habit) ? undefined : handleUndoHabit}
+            />
           ))}
         </View>
         {!isLoading && completedTasks.length === 0 && completedHabits.length === 0 ? (
@@ -390,6 +438,14 @@ export default function TodayScreen() {
           />
         ) : null}
       </View>
+
+      <WorkoutCheckInModal
+        checkIn={workoutCheckIn}
+        habitId={workoutModalHabitId}
+        onClose={closeWorkoutCheckIn}
+        onSave={handleSaveWorkoutCheckIn}
+        visible={isWorkoutModalVisible}
+      />
     </AppScreen>
   );
 }

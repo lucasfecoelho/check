@@ -9,7 +9,7 @@ import { getTaskDateGroup, type TaskDateGroupKey } from '@/database/date';
 import { spacing, useThemeColors } from '@/theme';
 
 const groups: { key: TaskDateGroupKey; title: string; subtitle: string }[] = [
-  { key: 'today', title: 'Hoje', subtitle: 'Ainda aparecem mesmo com prazo passado' },
+  { key: 'today', title: 'Hoje', subtitle: 'Inclui tarefas com prazo vencido' },
   { key: 'tomorrow', title: 'Amanhã', subtitle: 'Próximas 24 horas' },
   { key: 'thisWeek', title: 'Esta semana', subtitle: 'Até o fim da semana' },
   { key: 'later', title: 'Depois', subtitle: 'Sem pressa imediata' },

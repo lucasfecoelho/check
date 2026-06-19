@@ -8,10 +8,12 @@ import {
 } from 'date-fns';
 
 import { getTodayDateKey, parseDateKey } from './date';
-import { getHabits } from './habits';
+import { getDatabase } from './client';
+import { getHabits, getWorkoutCheckInsBetween, workoutTypeLabels } from './habits';
 import { getRoutineCalendarMonth, type RoutineCalendarDay } from './calendar';
+import { SELECT_SETTING_VALUE_SQL } from './schema';
 import { getSleepEntriesBetween } from './sleep';
-import type { SleepEntry } from './types';
+import type { SleepEntry, WorkoutCheckIn, WorkoutType } from './types';
 
 export type RoutinePeriodSummary = {
   completedItems: number;
@@ -55,6 +57,13 @@ export type RoutineSleepSummary = {
   worstNight: SleepEntry | null;
 };
 
+export type RoutineWorkoutSummary = {
+  monthWorkoutCount: number;
+  mostFrequentType: string | null;
+  weekCardioMinutes: number;
+  weekWorkoutMinutes: number;
+};
+
 export type RoutineStatistics = {
   habitStats: RoutineHabitStatistic[];
   month: RoutineMonthlySummary;
@@ -62,11 +71,17 @@ export type RoutineStatistics = {
     month: RoutineSleepSummary;
     week: RoutineSleepSummary;
   };
+  sleepTrackingEnabled: boolean;
   week: RoutinePeriodSummary & {
     bestHabit: RoutineWeekHabitHighlight;
     comparisonMessage: string;
     weakHabit: RoutineWeekHabitHighlight;
   };
+  workout: RoutineWorkoutSummary;
+};
+
+type SettingValueRow = {
+  value: string;
 };
 
 type HabitCounter = {
@@ -174,18 +189,18 @@ function buildHabitCounters(days: RoutineCalendarDay[]) {
 
 function getHabitSuggestion(percent: number) {
   if (percent >= 80) {
-    return 'Esse habito esta indo muito bem.';
+    return 'Esse hábito está indo muito bem.';
   }
 
   if (percent > 0 && percent < 50) {
-    return 'Esse habito esta ficando para tras.';
+    return 'Esse hábito está ficando para trás.';
   }
 
   if (percent === 0) {
-    return 'Esse habito precisa de uma retomada simples.';
+    return 'Esse hábito precisa de uma retomada simples.';
   }
 
-  return 'Esse habito esta em construcao.';
+  return 'Esse hábito está em construção.';
 }
 
 function getWeekHighlight(
@@ -220,18 +235,18 @@ function getWeekHighlight(
 
 function getWeekComparisonMessage(currentPercent: number, previousPercent: number) {
   if (currentPercent > previousPercent) {
-    return 'Sua rotina melhorou em relacao a semana passada.';
+    return 'Sua rotina melhorou em relação à semana passada.';
   }
 
   if (currentPercent < previousPercent) {
-    return 'Essa semana caiu um pouco. Tente retomar amanha.';
+    return 'Esta semana caiu um pouco. Tente retomar amanhã.';
   }
 
   if (currentPercent === 0 && previousPercent === 0) {
-    return 'Ainda ha pouco historico para comparar as semanas.';
+    return 'Ainda há pouco histórico para comparar as semanas.';
   }
 
-  return 'Sua rotina esta estavel em relacao a semana passada.';
+  return 'Sua rotina está estável em relação à semana passada.';
 }
 
 function summarizeSleep(entries: SleepEntry[]): RoutineSleepSummary {
@@ -255,6 +270,52 @@ function summarizeSleep(entries: SleepEntry[]): RoutineSleepSummary {
   };
 }
 
+function getMostFrequentWorkoutType(entries: WorkoutCheckIn[]) {
+  if (entries.length === 0) {
+    return null;
+  }
+
+  const counters = entries.reduce<Map<WorkoutType, number>>((acc, entry) => {
+    acc.set(entry.workout_type, (acc.get(entry.workout_type) ?? 0) + 1);
+
+    return acc;
+  }, new Map());
+
+  const [type] = Array.from(counters.entries()).sort((left, right) => {
+    if (right[1] !== left[1]) {
+      return right[1] - left[1];
+    }
+
+    return workoutTypeLabels[left[0]].localeCompare(workoutTypeLabels[right[0]]);
+  })[0];
+
+  return workoutTypeLabels[type];
+}
+
+function summarizeWorkoutCheckIns(
+  weekEntries: WorkoutCheckIn[],
+  monthEntries: WorkoutCheckIn[]
+): RoutineWorkoutSummary {
+  return {
+    monthWorkoutCount: monthEntries.length,
+    mostFrequentType: getMostFrequentWorkoutType(monthEntries),
+    weekCardioMinutes: weekEntries.reduce(
+      (sum, entry) => sum + (entry.did_cardio ? entry.cardio_minutes ?? 0 : 0),
+      0
+    ),
+    weekWorkoutMinutes: weekEntries.reduce((sum, entry) => sum + entry.workout_minutes, 0),
+  };
+}
+
+async function getSleepTrackingEnabled() {
+  const db = await getDatabase();
+  const setting = await db.getFirstAsync<SettingValueRow>(SELECT_SETTING_VALUE_SQL, [
+    'sleep_tracking_enabled',
+  ]);
+
+  return setting?.value !== 'false';
+}
+
 export async function getRoutineStatistics(referenceDate = new Date()): Promise<RoutineStatistics> {
   const today = parseDateKey(getTodayDateKey(referenceDate));
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
@@ -265,14 +326,26 @@ export async function getRoutineStatistics(referenceDate = new Date()): Promise<
   const previousWeekEnd = endOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
   const monthStart = startOfMonth(today);
 
-  const [weekDays, previousWeekDays, monthDays, habits, weekSleepEntries, monthSleepEntries] =
-    await Promise.all([
+  const [
+    weekDays,
+    previousWeekDays,
+    monthDays,
+    habits,
+    weekSleepEntries,
+    monthSleepEntries,
+    weekWorkoutCheckIns,
+    monthWorkoutCheckIns,
+    sleepTrackingEnabled,
+  ] = await Promise.all([
       getRoutineDaysForRange(weekStart, weekEnd),
       getRoutineDaysForRange(previousWeekStart, previousWeekEnd),
       getRoutineDaysForRange(monthStart, today),
       getHabits(),
       getSleepEntriesBetween(getTodayDateKey(weekStart), getTodayDateKey(weekEnd)),
       getSleepEntriesBetween(getTodayDateKey(monthStart), getTodayDateKey(today)),
+      getWorkoutCheckInsBetween(getTodayDateKey(weekStart), getTodayDateKey(weekEnd)),
+      getWorkoutCheckInsBetween(getTodayDateKey(monthStart), getTodayDateKey(today)),
+      getSleepTrackingEnabled(),
     ]);
   const weekSummary = summarizeDays(weekDays);
   const previousWeekSummary = summarizeDays(previousWeekDays);
@@ -322,6 +395,7 @@ export async function getRoutineStatistics(referenceDate = new Date()): Promise<
       month: summarizeSleep(monthSleepEntries),
       week: summarizeSleep(weekSleepEntries),
     },
+    sleepTrackingEnabled,
     week: {
       ...weekSummary,
       bestHabit: getWeekHighlight(weekHabitCounters, 'best'),
@@ -331,5 +405,6 @@ export async function getRoutineStatistics(referenceDate = new Date()): Promise<
       ),
       weakHabit: getWeekHighlight(weekHabitCounters, 'weak'),
     },
+    workout: summarizeWorkoutCheckIns(weekWorkoutCheckIns, monthWorkoutCheckIns),
   };
 }

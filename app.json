@@ -2,12 +2,12 @@
   "expo": {
     "name": "Check",
     "slug": "check",
-    "version": "1.2.5",
-    "description": "App pessoal para tarefas e hábitos",
+    "version": "1.3.0",
+    "description": "Rotina diária, streaks, calendário, estatísticas, hábitos quantitativos, água e sono.",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "check",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
     },

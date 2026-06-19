@@ -317,9 +317,9 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
               ]}>
               <View style={styles.switchRow}>
                 <View style={styles.switchCopy}>
-                  <AppText variant="bodyStrong">Lembrete de agua</AppText>
+                  <AppText variant="bodyStrong">Lembrete de água</AppText>
                   <AppText color={colors.textMuted} variant="caption">
-                    A cada 1 hora, dentro do horario definido.
+                    A cada 1 hora, dentro do horário definido.
                   </AppText>
                 </View>
                 <Switch
@@ -334,7 +334,7 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
                 <View style={styles.reminderFields}>
                   <View style={[styles.field, styles.inlineField]}>
                     <AppText color={colors.textMuted} variant="caption">
-                      Inicio
+                      Início
                     </AppText>
                     <TimePickerField
                       defaultTime={DEFAULT_WATER_REMINDER_START_TIME}
@@ -354,7 +354,7 @@ export function HabitForm({ categories, initialValues, onSubmit, submitLabel }: 
                   </View>
                   <View style={[styles.frequencyPill, { backgroundColor: colors.surface }]}>
                     <AppText color={colors.habit} variant="caption">
-                      Frequencia: a cada 1 hora
+                      Frequência: a cada 1 hora
                     </AppText>
                   </View>
                 </View>

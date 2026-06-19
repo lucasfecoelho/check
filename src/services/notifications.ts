@@ -51,6 +51,7 @@ const CHANNEL_ID = 'check-reminders';
 const NOTIFICATIONS_SETTING_KEY = 'notifications_enabled';
 const TASK_REMINDER_LEAD_MINUTES_SETTING_KEY = 'task_reminder_lead_minutes';
 const SLEEP_NOTIFICATION_IDS_SETTING_KEY = 'sleep_notification_ids';
+const SLEEP_TRACKING_ENABLED_SETTING_KEY = 'sleep_tracking_enabled';
 const DEFAULT_TASK_REMINDER_LEAD_MINUTES = 30;
 const VALID_TASK_REMINDER_LEAD_MINUTES = [10, 30, 60] as const;
 const HABIT_NOTIFICATION_OCCURRENCE_COUNT = 14;
@@ -82,7 +83,6 @@ export function configureNotificationHandler() {
     return;
   }
 
-  console.log('[Check][notifications] configuring handler');
   setNotificationHandler({
     handleNotification: async () => ({
       priority: AndroidNotificationPriority.HIGH,
@@ -136,6 +136,15 @@ export async function areNotificationsEnabled() {
   const db = await getDatabase();
   const setting = await db.getFirstAsync<SettingValueRow>(SELECT_SETTING_VALUE_SQL, [
     NOTIFICATIONS_SETTING_KEY,
+  ]);
+
+  return setting?.value !== 'false';
+}
+
+export async function isSleepTrackingEnabled() {
+  const db = await getDatabase();
+  const setting = await db.getFirstAsync<SettingValueRow>(SELECT_SETTING_VALUE_SQL, [
+    SLEEP_TRACKING_ENABLED_SETTING_KEY,
   ]);
 
   return setting?.value !== 'false';
@@ -233,8 +242,14 @@ function getScheduledDate(date: string, time: string) {
   return isAfter(parsed, new Date()) ? parsed : null;
 }
 
+function getUniqueNotificationIds(ids: (string | null | undefined)[]) {
+  return Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
+}
+
 function stringifyNotificationIds(ids: string[]) {
-  return ids.length > 0 ? JSON.stringify(ids) : null;
+  const uniqueIds = getUniqueNotificationIds(ids);
+
+  return uniqueIds.length > 0 ? JSON.stringify(uniqueIds) : null;
 }
 
 async function getSettingValue(key: string) {
@@ -288,9 +303,11 @@ function parseNotificationIdList(notificationId?: string | null) {
   try {
     const parsed = JSON.parse(notificationId);
 
-    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : [notificationId];
+    return Array.isArray(parsed)
+      ? getUniqueNotificationIds(parsed.filter((id) => typeof id === 'string'))
+      : getUniqueNotificationIds([notificationId]);
   } catch {
-    return [notificationId];
+    return getUniqueNotificationIds([notificationId]);
   }
 }
 
@@ -403,8 +420,10 @@ async function scheduleAtDate(
 }
 
 async function cancelNotificationIds(ids: string[]) {
+  const uniqueIds = getUniqueNotificationIds(ids);
+
   await Promise.all(
-    ids.map((id) =>
+    uniqueIds.map((id) =>
       cancelScheduledNotificationAsync(id).catch((error) => {
         console.warn('Failed to cancel scheduled notification', error);
       })
@@ -454,6 +473,10 @@ export async function rescheduleSleepReminderNotification() {
   configureNotificationHandler();
   await cancelSleepReminderNotification();
 
+  if (!(await isSleepTrackingEnabled())) {
+    return null;
+  }
+
   if (!(await canScheduleNotifications())) {
     return null;
   }
@@ -466,7 +489,7 @@ export async function rescheduleSleepReminderNotification() {
       await scheduleAtDate(
         {
           body: 'Registre seu sono e acompanhe sua rotina.',
-          title: 'Quantas horas voce dormiu hoje?',
+          title: 'Quantas horas você dormiu hoje?',
         },
         date,
         {
@@ -484,6 +507,22 @@ export async function rescheduleSleepReminderNotification() {
   await setSettingValue(SLEEP_NOTIFICATION_IDS_SETTING_KEY, serializedIds ?? '');
 
   return serializedIds;
+}
+
+export async function updateSleepTrackingEnabled(enabled: boolean) {
+  const db = await getDatabase();
+
+  await db.runAsync(UPDATE_SETTING_SQL, [
+    SLEEP_TRACKING_ENABLED_SETTING_KEY,
+    enabled ? 'true' : 'false',
+  ]);
+
+  if (!enabled) {
+    await cancelSleepReminderNotification();
+    return null;
+  }
+
+  return rescheduleSleepReminderNotification();
 }
 
 export async function scheduleTaskNotifications(
@@ -562,9 +601,7 @@ export async function scheduleTaskNotifications(
 export async function cancelTaskNotifications(
   task: Pick<TaskWithCategory, 'notification_30min_id' | 'notification_due_id'> | null
 ) {
-  const ids = [task?.notification_30min_id, task?.notification_due_id].filter(
-    (id): id is string => Boolean(id)
-  );
+  const ids = getUniqueNotificationIds([task?.notification_30min_id, task?.notification_due_id]);
 
   await cancelNotificationIds(ids);
 }

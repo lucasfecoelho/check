@@ -4,7 +4,9 @@ import {
   BarChart3,
   CalendarCheck2,
   CheckCircle2,
+  Dumbbell,
   Flame,
+  HeartPulse,
   Moon,
   Repeat2,
   Sparkles,
@@ -31,16 +33,20 @@ function formatHours(value: number | null) {
   return typeof value === 'number' ? `${value}h` : '--';
 }
 
+function formatMinutes(value: number) {
+  return value > 0 ? `${value} min` : '--';
+}
+
 function getWeekMessage(percent: number) {
   if (percent >= 80) {
-    return `Voce concluiu ${formatPercent(percent)} da sua rotina esta semana`;
+    return `Você concluiu ${formatPercent(percent)} da sua rotina esta semana`;
   }
 
   if (percent > 0) {
-    return `${formatPercent(percent)} da rotina concluida nesta semana`;
+    return `${formatPercent(percent)} da rotina concluída nesta semana`;
   }
 
-  return 'Ainda nao ha conclusoes registradas nesta semana';
+  return 'Ainda não há conclusões registradas nesta semana';
 }
 
 function ProgressBar({ color, percent }: { color: string; percent: number }) {
@@ -110,7 +116,7 @@ function HabitHighlight({
         </AppText>
         {highlight ? (
           <AppText color={colors.textMuted} variant="caption">
-            {highlight.completedCount} de {highlight.expectedCount} conclusoes
+            {highlight.completedCount} de {highlight.expectedCount} conclusões
           </AppText>
         ) : null}
       </View>
@@ -133,7 +139,7 @@ function HabitStatisticCard({ habit }: { habit: RoutineHabitStatistic }) {
         <View style={styles.habitTitle}>
           <AppText variant="bodyStrong">{habit.title}</AppText>
           <AppText color={colors.textMuted} variant="caption">
-            {habit.completedCount} conclusoes no mes
+            {habit.completedCount} conclusões no mês
           </AppText>
         </View>
         <AppText color={statusColor} variant="title">
@@ -200,7 +206,7 @@ export default function StatsScreen() {
     return (
       <AppScreen contentStyle={styles.loadingScreen}>
         <ActivityIndicator color={colors.primary} />
-        <AppText color={colors.textMuted}>Carregando estatisticas...</AppText>
+        <AppText color={colors.textMuted}>Carregando estatísticas...</AppText>
       </AppScreen>
     );
   }
@@ -209,23 +215,28 @@ export default function StatsScreen() {
     return (
       <AppScreen>
         <EmptyState
-          description="Assim que houver habitos ou tarefas concluidas, os dados aparecem aqui."
+          description="Assim que houver hábitos ou tarefas concluídas, os dados aparecem aqui."
           icon={BarChart3}
-          title="Sem estatisticas ainda"
+          title="Sem estatísticas ainda"
         />
       </AppScreen>
     );
   }
 
+  const shouldShowSleepSection =
+    statistics.sleepTrackingEnabled ||
+    statistics.sleep.week.recordedDays > 0 ||
+    statistics.sleep.month.recordedDays > 0;
+
   return (
     <AppScreen>
       <View style={styles.header}>
         <AppText color={colors.textMuted} variant="caption">
-          Consistencia
+          Consistência
         </AppText>
-        <AppText variant="heading">Estatisticas</AppText>
+        <AppText variant="heading">Estatísticas</AppText>
         <AppText color={colors.textMuted}>
-          Um resumo simples para entender o que esta andando bem e o que merece atencao.
+          Um resumo simples para entender o que está indo bem e o que merece atenção.
         </AppText>
       </View>
 
@@ -250,7 +261,7 @@ export default function StatsScreen() {
         <View style={styles.metricsGrid}>
           <MetricCard
             color={colors.success}
-            label="concluidos"
+            label="concluídos"
             value={statistics.week.completedItems}
           />
           <MetricCard
@@ -261,24 +272,24 @@ export default function StatsScreen() {
         </View>
 
         <View style={styles.highlightsGrid}>
-          <HabitHighlight highlight={statistics.week.bestHabit} title="Melhor habito" tone="best" />
+          <HabitHighlight highlight={statistics.week.bestHabit} title="Melhor hábito" tone="best" />
           <HabitHighlight
             highlight={statistics.week.weakHabit}
-            title="Mais dificil"
+            title="Mais difícil"
             tone="weak"
           />
         </View>
       </Card>
 
       <View style={styles.section}>
-        <SectionHeader subtitle="Ate hoje, sem contar dias futuros" title="Resumo do mes" />
+        <SectionHeader subtitle="Até hoje, sem contar dias futuros" title="Resumo do mês" />
         <Card style={styles.monthCard}>
           <View style={styles.monthHeader}>
             <View style={[styles.heroIcon, { backgroundColor: colors.habitSoft }]}>
               <CalendarCheck2 color={colors.habit} size={21} strokeWidth={2.4} />
             </View>
             <View style={styles.heroCopy}>
-              <AppText variant="bodyStrong">{formatPercent(statistics.month.percent)} do mes</AppText>
+              <AppText variant="bodyStrong">{formatPercent(statistics.month.percent)} do mês</AppText>
               <AppText color={colors.textMuted} variant="caption">
                 {statistics.month.completedItems} de {statistics.month.expectedItems} itens
               </AppText>
@@ -297,13 +308,13 @@ export default function StatsScreen() {
             <View style={[styles.totalRow, { borderColor: colors.border }]}>
               <Repeat2 color={colors.habit} size={17} strokeWidth={2.3} />
               <AppText style={styles.totalText} variant="bodyStrong">
-                {statistics.month.completedHabits} habitos concluidos
+                {statistics.month.completedHabits} hábitos concluídos
               </AppText>
             </View>
             <View style={[styles.totalRow, { borderColor: colors.border }]}>
               <CheckCircle2 color={colors.task} size={17} strokeWidth={2.3} />
               <AppText style={styles.totalText} variant="bodyStrong">
-                {statistics.month.completedTasks} tarefas concluidas
+                {statistics.month.completedTasks} tarefas concluídas
               </AppText>
             </View>
           </View>
@@ -311,55 +322,102 @@ export default function StatsScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader subtitle="Registros salvos por data" title="Sono" />
-        <Card style={styles.sleepCard}>
+        <SectionHeader subtitle="Check-ins detalhados de treino" title="Academia" />
+        <Card style={styles.workoutCard}>
           <View style={styles.monthHeader}>
-            <View style={[styles.heroIcon, { backgroundColor: colors.primarySoft }]}>
-              <Moon color={colors.primary} size={21} strokeWidth={2.4} />
+            <View style={[styles.heroIcon, { backgroundColor: colors.habitSoft }]}>
+              <Dumbbell color={colors.habit} size={21} strokeWidth={2.4} />
             </View>
             <View style={styles.heroCopy}>
-              <AppText variant="bodyStrong">Resumo de descanso</AppText>
+              <AppText variant="bodyStrong">Resumo de treinos</AppText>
               <AppText color={colors.textMuted} variant="caption">
-                {statistics.sleep.week.recordedDays} registros nesta semana
+                {statistics.workout.monthWorkoutCount} treinos registrados no mês
               </AppText>
             </View>
           </View>
 
           <View style={styles.dayColors}>
             <MetricCard
-              color={colors.primary}
-              label="media semanal"
-              value={formatHours(statistics.sleep.week.averageHours)}
+              color={colors.habit}
+              label="treinos no mês"
+              value={statistics.workout.monthWorkoutCount}
             />
             <MetricCard
-              color={colors.habit}
-              label="media mensal"
-              value={formatHours(statistics.sleep.month.averageHours)}
+              color={colors.primary}
+              label="tempo semanal"
+              value={formatMinutes(statistics.workout.weekWorkoutMinutes)}
             />
           </View>
 
           <View style={styles.monthTotals}>
             <View style={[styles.totalRow, { borderColor: colors.border }]}>
-              <Moon color={colors.success} size={17} strokeWidth={2.3} />
+              <HeartPulse color={colors.success} size={17} strokeWidth={2.3} />
               <AppText style={styles.totalText} variant="bodyStrong">
-                Melhor noite: {formatHours(statistics.sleep.month.bestNight?.hours ?? null)}
+                Cardio na semana: {formatMinutes(statistics.workout.weekCardioMinutes)}
               </AppText>
             </View>
             <View style={[styles.totalRow, { borderColor: colors.border }]}>
-              <Moon color={colors.warning} size={17} strokeWidth={2.3} />
+              <Dumbbell color={colors.habit} size={17} strokeWidth={2.3} />
               <AppText style={styles.totalText} variant="bodyStrong">
-                Pior noite: {formatHours(statistics.sleep.month.worstNight?.hours ?? null)}
+                Mais frequente: {statistics.workout.mostFrequentType ?? 'Sem dados'}
               </AppText>
             </View>
           </View>
         </Card>
       </View>
 
+      {shouldShowSleepSection ? (
+        <View style={styles.section}>
+          <SectionHeader subtitle="Registros salvos por data" title="Sono" />
+          <Card style={styles.sleepCard}>
+            <View style={styles.monthHeader}>
+              <View style={[styles.heroIcon, { backgroundColor: colors.primarySoft }]}>
+                <Moon color={colors.primary} size={21} strokeWidth={2.4} />
+              </View>
+              <View style={styles.heroCopy}>
+                <AppText variant="bodyStrong">Resumo de descanso</AppText>
+                <AppText color={colors.textMuted} variant="caption">
+                  {statistics.sleep.week.recordedDays} registros nesta semana
+                </AppText>
+              </View>
+            </View>
+
+            <View style={styles.dayColors}>
+              <MetricCard
+                color={colors.primary}
+                label="média semanal"
+                value={formatHours(statistics.sleep.week.averageHours)}
+              />
+              <MetricCard
+                color={colors.habit}
+                label="média mensal"
+                value={formatHours(statistics.sleep.month.averageHours)}
+              />
+            </View>
+
+            <View style={styles.monthTotals}>
+              <View style={[styles.totalRow, { borderColor: colors.border }]}>
+                <Moon color={colors.success} size={17} strokeWidth={2.3} />
+                <AppText style={styles.totalText} variant="bodyStrong">
+                  Melhor noite: {formatHours(statistics.sleep.month.bestNight?.hours ?? null)}
+                </AppText>
+              </View>
+              <View style={[styles.totalRow, { borderColor: colors.border }]}>
+                <Moon color={colors.warning} size={17} strokeWidth={2.3} />
+                <AppText style={styles.totalText} variant="bodyStrong">
+                  Pior noite: {formatHours(statistics.sleep.month.worstNight?.hours ?? null)}
+                </AppText>
+              </View>
+            </View>
+          </Card>
+        </View>
+      ) : null}
+
       <View style={styles.section}>
         <SectionHeader
           count={statistics.habitStats.length}
-          subtitle="Taxa mensal, sequencias e conclusoes"
-          title="Por habito"
+          subtitle="Taxa mensal, sequências e conclusões"
+          title="Por hábito"
         />
         {statistics.habitStats.length > 0 ? (
           <View style={styles.habitList}>
@@ -369,11 +427,11 @@ export default function StatsScreen() {
           </View>
         ) : (
           <EmptyState
-            description="Crie um habito e conclua alguns dias para acompanhar a consistencia."
+            description="Crie um hábito e conclua alguns dias para acompanhar a consistência."
             icon={Repeat2}
             iconBackgroundColor={colors.habitSoft}
             iconColor={colors.habit}
-            title="Sem habitos no periodo"
+            title="Sem hábitos no período"
           />
         )}
       </View>
@@ -454,6 +512,9 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   sleepCard: {
+    gap: spacing.lg,
+  },
+  workoutCard: {
     gap: spacing.lg,
   },
   monthHeader: {

@@ -85,6 +85,7 @@ export function HabitCard({ habit, onAddProgress, onComplete, onPress, onUndo }:
   const bestStreakLabel = getBestStreakLabel(habit);
   const isQuantitative = habit.tracking_type === 'quantitative' && habit.target_value;
   const progressValue = isTodayHabit(habit) ? habit.progress_value : 0;
+  const workoutSummary = isTodayHabit(habit) ? habit.workout_checkin_summary : null;
   const progressPercent = isQuantitative
     ? Math.min(progressValue / (habit.target_value ?? 1), 1)
     : 0;
@@ -280,6 +281,13 @@ export function HabitCard({ habit, onAddProgress, onComplete, onPress, onUndo }:
                 ) : null}
               </View>
             ) : null}
+            {workoutSummary ? (
+              <View style={[styles.workoutSummary, { backgroundColor: colors.successSoft }]}>
+                <AppText color={colors.success} numberOfLines={2} variant="caption">
+                  {workoutSummary}
+                </AppText>
+              </View>
+            ) : null}
           </View>
 
           {onComplete || onUndo ? (
@@ -386,6 +394,14 @@ const styles = StyleSheet.create({
   },
   progressArea: {
     gap: spacing.sm,
+  },
+  workoutSummary: {
+    alignSelf: 'flex-start',
+    borderRadius: radius.md,
+    minHeight: 28,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   progressHeader: {
     alignItems: 'center',

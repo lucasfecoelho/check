@@ -8,9 +8,6 @@ import { AppThemeProvider, useAppTheme } from '@/theme';
 
 export default function RootLayout() {
   useEffect(() => {
-    console.log('[Check] RootLayout mounted');
-    console.log('[Check] notification handler deferred until notifications are used');
-    console.log('[Check] initializing database from RootLayout');
     initDatabase()
       .then(async () => {
         const notificationService = await import('@/services/notifications');

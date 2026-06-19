@@ -18,11 +18,7 @@ export async function cleanupOldHabitCompletions() {
 export async function getCategories() {
   const db = await getDatabase();
 
-  console.log('[Check][database] loading categories');
-  const categories = await db.getAllAsync<Category>(SELECT_CATEGORIES_SQL);
-  console.log(`[Check][database] loaded ${categories.length} categories`);
-
-  return categories;
+  return db.getAllAsync<Category>(SELECT_CATEGORIES_SQL);
 }
 
 export async function getSettings() {

@@ -7,7 +7,6 @@ let databasePromise: Promise<SQLiteDatabase> | null = null;
 
 export function getDatabase() {
   if (!databasePromise) {
-    console.log('[Check][database] opening SQLite database');
     databasePromise = SQLite.openDatabaseAsync(DATABASE_NAME);
   }
 

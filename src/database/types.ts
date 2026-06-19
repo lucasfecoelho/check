@@ -2,6 +2,14 @@ export type TaskStatus = 'pending' | 'completed';
 
 export type HabitFrequency = 'daily' | 'weekly' | 'monthly';
 export type HabitTrackingType = 'checkbox' | 'quantitative';
+export type WorkoutType =
+  | 'chest_triceps'
+  | 'back_biceps'
+  | 'legs'
+  | 'shoulders'
+  | 'full_body'
+  | 'cardio'
+  | 'other';
 
 export type Category = {
   color: string;
@@ -79,6 +87,7 @@ export type TodayHabit = HabitWithCategory & {
   completed_at: string | null;
   progress_value: number;
   is_completed: boolean;
+  workout_checkin_summary?: string | null;
 };
 
 export type CreateHabitInput = {
@@ -113,6 +122,28 @@ export type HabitProgress = {
   id: string;
   updated_at: string;
   value: number;
+};
+
+export type WorkoutCheckIn = {
+  cardio_minutes: number | null;
+  created_at: string;
+  date: string;
+  did_cardio: 0 | 1;
+  habit_id: string;
+  id: string;
+  note: string | null;
+  updated_at: string;
+  workout_minutes: number;
+  workout_type: WorkoutType;
+};
+
+export type SaveWorkoutCheckInInput = {
+  cardio_minutes?: number | null;
+  did_cardio: boolean;
+  habit_id: string;
+  note?: string | null;
+  workout_minutes: number;
+  workout_type: WorkoutType;
 };
 
 export type Setting = {

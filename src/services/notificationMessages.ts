@@ -94,7 +94,7 @@ export function buildHabitNotificationContent(
 
   if (context.currentStreak && context.currentStreak >= 2) {
     return {
-      body: `Você está com ${context.currentStreak} dias de sequência em ${title}. Não deixa cair hoje.`,
+      body: `Você está com ${context.currentStreak} dias de sequência em ${title}. Não deixe cair hoje.`,
       title: 'Check: sua sequência',
     };
   }
@@ -128,8 +128,8 @@ export function buildWaterReminderNotificationContent(
 
   if (!progress) {
     return {
-      body: 'Hora de beber agua.',
-      title: 'Check: hidratacao',
+      body: 'Hora de beber água.',
+      title: 'Check: hidratação',
     };
   }
 
@@ -144,14 +144,14 @@ export function buildWaterReminderNotificationContent(
 
   if (Number.isFinite(current) && current > 0) {
     return {
-      body: `Voce ja bebeu ${formatAmount(current)}${unitLabel} de ${formatAmount(target)}${unitLabel} hoje. Falta pouco.`,
-      title: 'Check: agua',
+      body: `Você já bebeu ${formatAmount(current)}${unitLabel} de ${formatAmount(target)}${unitLabel} hoje. Falta pouco.`,
+      title: 'Check: água',
     };
   }
 
   return {
-    body: 'Ainda da tempo de bater sua meta de agua hoje.',
-    title: 'Check: agua',
+    body: 'Ainda dá tempo de alcançar sua meta de água hoje.',
+    title: 'Check: água',
   };
 }
 
